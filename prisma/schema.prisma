@@ -26,10 +26,12 @@ model Organization {
   updatedAt   DateTime                 @updatedAt @map("updated_at")
   memberships OrganizationMembership[]
   invitations OrganizationInvitation[]
-  categories       ProductCategory[]
-  products         Product[]
-  warehouses       Warehouse[]
-  storageLocations StorageLocation[]
+  categories            ProductCategory[]
+  products              Product[]
+  warehouses            Warehouse[]
+  storageLocations      StorageLocation[]
+  inventoryBalances     InventoryBalance[]
+  inventoryTransactions InventoryTransaction[]
 
   @@index([slug])
   @@map("organizations")
@@ -44,9 +46,10 @@ model User {
   status          String                   @default("ACTIVE")
   createdAt       DateTime                 @default(now()) @map("created_at")
   updatedAt       DateTime                 @updatedAt @map("updated_at")
-  refreshTokens   RefreshToken[]
-  memberships     OrganizationMembership[]
-  sentInvitations OrganizationInvitation[] @relation("InvitedByUser")
+  refreshTokens         RefreshToken[]
+  memberships           OrganizationMembership[]
+  sentInvitations       OrganizationInvitation[] @relation("InvitedByUser")
+  inventoryTransactions InventoryTransaction[]
 
   @@index([email])
   @@map("users")
@@ -153,8 +156,10 @@ model Product {
   createdAt         DateTime      @default(now()) @map("created_at")
   updatedAt         DateTime      @updatedAt @map("updated_at")
 
-  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  category     ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category              ProductCategory?       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  inventoryBalances     InventoryBalance[]
+  inventoryTransactions InventoryTransaction[]
 
   @@unique([organizationId, sku])
   @@index([organizationId])
@@ -193,8 +198,10 @@ model Warehouse {
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @updatedAt @map("updated_at")
 
-  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  locations    StorageLocation[]
+  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  locations             StorageLocation[]
+  inventoryBalances     InventoryBalance[]
+  inventoryTransactions InventoryTransaction[]
 
   @@unique([organizationId, code])
   @@unique([id, organizationId])
@@ -217,13 +224,89 @@ model StorageLocation {
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  warehouse    Warehouse    @relation(fields: [warehouseId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  organization            Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  warehouse               Warehouse              @relation(fields: [warehouseId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  inventoryBalances       InventoryBalance[]
+  sourceTransactions      InventoryTransaction[] @relation("SourceLocationTransactions")
+  destinationTransactions InventoryTransaction[] @relation("DestinationLocationTransactions")
 
   @@unique([warehouseId, code])
   @@index([warehouseId])
   @@index([organizationId])
   @@index([warehouseId, status])
   @@map("storage_locations")
+}
+
+/// Operation classification for inventory stock movements and adjustments.
+enum InventoryTransactionType {
+  RECEIPT
+  ISSUE
+  ADJUSTMENT
+  TRANSFER
+}
+
+/// Tracks current stock balance of a product at a specific storage location.
+model InventoryBalance {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  productId      String   @map("product_id")
+  warehouseId    String   @map("warehouse_id")
+  locationId     String   @map("location_id")
+  quantityOnHand Decimal  @default(0) @map("quantity_on_hand") @db.Decimal(18, 4)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouse    Warehouse       @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  location     StorageLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, locationId])
+  @@index([organizationId])
+  @@index([productId])
+  @@index([warehouseId])
+  @@index([locationId])
+  @@index([organizationId, productId])
+  @@index([organizationId, warehouseId])
+  @@map("inventory_balances")
+}
+
+/// Append-only audit ledger recording every inventory movement and stock adjustment.
+model InventoryTransaction {
+  id                    String                   @id @default(uuid())
+  organizationId        String                   @map("organization_id")
+  productId             String                   @map("product_id")
+  warehouseId           String?                  @map("warehouse_id")
+  type                  InventoryTransactionType
+  quantity              Decimal                  @map("quantity") @db.Decimal(18, 4)
+  quantityDelta         Decimal                  @map("quantity_delta") @db.Decimal(18, 4)
+  sourceLocationId      String?                  @map("source_location_id")
+  destinationLocationId String?                  @map("destination_location_id")
+  reason                String?                  @map("reason")
+  reference             String?                  @map("reference")
+  notes                 String?                  @map("notes")
+  idempotencyKey        String?                  @map("idempotency_key")
+  requestHash           String?                  @map("request_hash")
+  performedByUserId     String                   @map("performed_by_user_id")
+  createdAt             DateTime                 @default(now()) @map("created_at")
+
+  organization        Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product             Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouse           Warehouse?       @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  sourceLocation      StorageLocation? @relation("SourceLocationTransactions", fields: [sourceLocationId], references: [id], onDelete: Restrict)
+  destinationLocation StorageLocation? @relation("DestinationLocationTransactions", fields: [destinationLocationId], references: [id], onDelete: Restrict)
+  performedByUser     User             @relation(fields: [performedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId])
+  @@index([productId])
+  @@index([warehouseId])
+  @@index([sourceLocationId])
+  @@index([destinationLocationId])
+  @@index([organizationId, createdAt])
+  @@index([type])
+  @@index([organizationId, type])
+  @@index([performedByUserId])
+  @@map("inventory_transactions")
 }
 

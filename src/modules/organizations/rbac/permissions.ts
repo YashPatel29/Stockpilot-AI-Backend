@@ -32,6 +32,11 @@ export const Permissions = {
   // Storage location management
   LOCATIONS_READ: "locations:read",
   LOCATIONS_WRITE: "locations:write",
+
+  // Inventory balance & transaction management
+  INVENTORY_BALANCES_READ: "inventory:balances:read",
+  INVENTORY_TRANSACTIONS_READ: "inventory:transactions:read",
+  INVENTORY_TRANSACTIONS_WRITE: "inventory:transactions:write",
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions];
@@ -58,6 +63,9 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.WAREHOUSES_WRITE,
     Permissions.LOCATIONS_READ,
     Permissions.LOCATIONS_WRITE,
+    Permissions.INVENTORY_BALANCES_READ,
+    Permissions.INVENTORY_TRANSACTIONS_READ,
+    Permissions.INVENTORY_TRANSACTIONS_WRITE,
   ],
   [OrganizationRole.ADMIN]: [
     Permissions.ORG_MEMBERS_READ,
@@ -73,6 +81,9 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.WAREHOUSES_WRITE,
     Permissions.LOCATIONS_READ,
     Permissions.LOCATIONS_WRITE,
+    Permissions.INVENTORY_BALANCES_READ,
+    Permissions.INVENTORY_TRANSACTIONS_READ,
+    Permissions.INVENTORY_TRANSACTIONS_WRITE,
   ],
   [OrganizationRole.MEMBER]: [
     Permissions.ORG_MEMBERS_READ,
@@ -80,6 +91,8 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.CATALOG_PRODUCTS_READ,
     Permissions.WAREHOUSES_READ,
     Permissions.LOCATIONS_READ,
+    Permissions.INVENTORY_BALANCES_READ,
+    Permissions.INVENTORY_TRANSACTIONS_READ,
   ],
 };
 

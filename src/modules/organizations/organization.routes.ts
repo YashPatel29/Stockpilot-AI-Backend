@@ -7,6 +7,7 @@ import { orgInvitationRouter } from "./invitations/invitation.routes";
 import { categoryRouter } from "../products/categories/category.routes";
 import { productRouter } from "../products/products/product.routes";
 import { warehouseRouter } from "../warehouses/warehouses/warehouse.routes";
+import { inventoryRouter } from "../inventory/inventory.routes";
 import {
   createOrganizationSchema,
   updateOrganizationSchema,
@@ -32,6 +33,7 @@ export function createOrganizationRouter(
   router.use("/:organizationId/categories", categoryRouter);
   router.use("/:organizationId/products", productRouter);
   router.use("/:organizationId/warehouses", warehouseRouter);
+  router.use("/:organizationId/inventory", inventoryRouter);
 
   // POST /api/v1/organizations - Create organization + owner membership
   router.post(

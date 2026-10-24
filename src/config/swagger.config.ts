@@ -55,14 +55,9 @@ export const swaggerSpec = {
       description: "Inventory product management, SKU tracking, pricing, and soft-archiving",
     },
     {
-      name: "Warehouses",
+      name: "Inventory",
       description:
-        "Physical storage facility management, address information, and soft-deactivation",
-    },
-    {
-      name: "Storage Locations",
-      description:
-        "Warehouse storage locations (aisle, rack, shelf, bin) management and status tracking",
+        "Real-time stock balance tracking, receipts, issues, adjustments, transfers, and append-only audit ledger",
     },
     {
       name: "Warehouses",
@@ -1888,6 +1883,384 @@ export const swaggerSpec = {
         },
       },
     },
+    "/api/v1/organizations/{organizationId}/inventory/balances": {
+      get: {
+        tags: ["Inventory"],
+        summary: "List inventory balances",
+        description:
+          "Retrieves paginated stock balances per product and location with optional filtering by product, warehouse, location, or search term. Requires OWNER, ADMIN, or MEMBER role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "page",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 1, minimum: 1 },
+          },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 20, minimum: 1, maximum: 100 },
+          },
+          {
+            name: "productId",
+            in: "query",
+            required: false,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "warehouseId",
+            in: "query",
+            required: false,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "locationId",
+            in: "query",
+            required: false,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "search",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Inventory balances retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PaginatedBalancesResponse" },
+              },
+            },
+          },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Organization not found" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/inventory/receipts": {
+      post: {
+        tags: ["Inventory"],
+        summary: "Receive stock into storage location",
+        description:
+          "Atomically receives incoming inventory stock into a designated storage location and records a RECEIPT ledger entry. Requires OWNER or ADMIN role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ReceiptInput" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Stock received successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "object",
+                      properties: {
+                        transaction: { $ref: "#/components/schemas/SafeInventoryTransactionDto" },
+                        balance: { $ref: "#/components/schemas/SafeInventoryBalanceDto" },
+                      },
+                    },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Validation error or inactive product/location/warehouse" },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Product or storage location not found" },
+          "409": { description: "Conflict: Idempotency key reused with different payload" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/inventory/issues": {
+      post: {
+        tags: ["Inventory"],
+        summary: "Issue stock from storage location",
+        description:
+          "Atomically decreases inventory balance at a storage location and records an ISSUE ledger entry. Rejects if stock is insufficient to prevent negative balances. Requires OWNER or ADMIN role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/IssueInput" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Stock issued successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "object",
+                      properties: {
+                        transaction: { $ref: "#/components/schemas/SafeInventoryTransactionDto" },
+                        balance: { $ref: "#/components/schemas/SafeInventoryBalanceDto" },
+                      },
+                    },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": {
+            description:
+              "Validation error, insufficient stock, or inactive product/location/warehouse",
+          },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Product or storage location not found" },
+          "409": { description: "Conflict: Idempotency key reused with different payload" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/inventory/adjustments": {
+      post: {
+        tags: ["Inventory"],
+        summary: "Adjust stock at storage location",
+        description:
+          "Adjusts inventory quantity at a location using a signed delta and records an ADJUSTMENT ledger entry with mandatory reason. Rejects adjustments that would cause negative stock. Requires OWNER or ADMIN role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/AdjustmentInput" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Stock adjusted successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "object",
+                      properties: {
+                        transaction: { $ref: "#/components/schemas/SafeInventoryTransactionDto" },
+                        balance: { $ref: "#/components/schemas/SafeInventoryBalanceDto" },
+                      },
+                    },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": {
+            description:
+              "Validation error, adjustment results in negative stock, or inactive product/location/warehouse",
+          },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Product or storage location not found" },
+          "409": { description: "Conflict: Idempotency key reused with different payload" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/inventory/transfers": {
+      post: {
+        tags: ["Inventory"],
+        summary: "Transfer stock between storage locations",
+        description:
+          "Atomically decreases source balance, increases destination balance, and creates exactly ONE logical TRANSFER ledger entry. Rejects identical locations or insufficient source stock. Requires OWNER or ADMIN role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/TransferInput" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Stock transferred successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "object",
+                      properties: {
+                        transaction: { $ref: "#/components/schemas/SafeInventoryTransactionDto" },
+                        sourceBalance: { $ref: "#/components/schemas/SafeInventoryBalanceDto" },
+                        destinationBalance: {
+                          $ref: "#/components/schemas/SafeInventoryBalanceDto",
+                        },
+                      },
+                    },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": {
+            description:
+              "Validation error, identical locations, insufficient source stock, or inactive resources",
+          },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Product or storage locations not found" },
+          "409": { description: "Conflict: Idempotency key reused with different payload" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/inventory/transactions": {
+      get: {
+        tags: ["Inventory"],
+        summary: "List inventory transactions history",
+        description:
+          "Retrieves paginated audit history of inventory movements and adjustments with filters by product, warehouse, location, transaction type, and date range. Requires OWNER, ADMIN, or MEMBER role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "page",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 1, minimum: 1 },
+          },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 20, minimum: 1, maximum: 100 },
+          },
+          {
+            name: "productId",
+            in: "query",
+            required: false,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "warehouseId",
+            in: "query",
+            required: false,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "locationId",
+            in: "query",
+            required: false,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "type",
+            in: "query",
+            required: false,
+            schema: {
+              type: "string",
+              enum: ["RECEIPT", "ISSUE", "ADJUSTMENT", "TRANSFER"],
+            },
+          },
+          {
+            name: "startDate",
+            in: "query",
+            required: false,
+            schema: { type: "string", format: "date-time" },
+          },
+          {
+            name: "endDate",
+            in: "query",
+            required: false,
+            schema: { type: "string", format: "date-time" },
+          },
+          {
+            name: "search",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Inventory transactions retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PaginatedTransactionsResponse" },
+              },
+            },
+          },
+          "400": { description: "Invalid query parameters or date range" },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Organization not found" },
+        },
+      },
+    },
     "/health/ready": {
       get: {
         tags: ["Health Probes"],
@@ -2408,6 +2781,210 @@ export const swaggerSpec = {
                   page: { type: "integer", example: 1 },
                   limit: { type: "integer", example: 20 },
                   totalItems: { type: "integer", example: 15 },
+                  totalPages: { type: "integer", example: 1 },
+                  hasNextPage: { type: "boolean", example: false },
+                  hasPrevPage: { type: "boolean", example: false },
+                },
+              },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      ReceiptInput: {
+        type: "object",
+        required: ["productId", "locationId", "quantity"],
+        properties: {
+          productId: { type: "string", format: "uuid" },
+          locationId: { type: "string", format: "uuid" },
+          quantity: {
+            type: "string",
+            example: "25.0000",
+            description: "Strictly positive quantity with at most 4 decimal places",
+          },
+          reference: { type: "string", example: "PO-1001", maxLength: 100 },
+          notes: { type: "string", example: "Initial shipment", maxLength: 1000 },
+          idempotencyKey: { type: "string", example: "uuid-idempotency-key", maxLength: 128 },
+        },
+      },
+      IssueInput: {
+        type: "object",
+        required: ["productId", "locationId", "quantity"],
+        properties: {
+          productId: { type: "string", format: "uuid" },
+          locationId: { type: "string", format: "uuid" },
+          quantity: {
+            type: "string",
+            example: "5.0000",
+            description: "Strictly positive quantity with at most 4 decimal places",
+          },
+          reason: { type: "string", example: "DAMAGED", maxLength: 100 },
+          reference: { type: "string", example: "ISSUE-1001", maxLength: 100 },
+          notes: { type: "string", example: "Damaged during transit", maxLength: 1000 },
+          idempotencyKey: { type: "string", example: "uuid-idempotency-key", maxLength: 128 },
+        },
+      },
+      AdjustmentInput: {
+        type: "object",
+        required: ["productId", "locationId", "quantityDelta", "reason"],
+        properties: {
+          productId: { type: "string", format: "uuid" },
+          locationId: { type: "string", format: "uuid" },
+          quantityDelta: {
+            type: "string",
+            example: "-2.0000",
+            description: "Nonzero signed decimal delta with at most 4 decimal places",
+          },
+          reason: { type: "string", example: "STOCK_COUNT", maxLength: 100 },
+          reference: { type: "string", example: "AUDIT-2026-Q1", maxLength: 100 },
+          notes: { type: "string", example: "Physical count reconciliation", maxLength: 1000 },
+          idempotencyKey: { type: "string", example: "uuid-idempotency-key", maxLength: 128 },
+        },
+      },
+      TransferInput: {
+        type: "object",
+        required: ["productId", "sourceLocationId", "destinationLocationId", "quantity"],
+        properties: {
+          productId: { type: "string", format: "uuid" },
+          sourceLocationId: { type: "string", format: "uuid" },
+          destinationLocationId: { type: "string", format: "uuid" },
+          quantity: {
+            type: "string",
+            example: "8.0000",
+            description: "Strictly positive quantity with at most 4 decimal places",
+          },
+          reference: { type: "string", example: "TRANSFER-1001", maxLength: 100 },
+          notes: { type: "string", example: "Aisle replenishment", maxLength: 1000 },
+          idempotencyKey: { type: "string", example: "uuid-idempotency-key", maxLength: 128 },
+        },
+      },
+      SafeInventoryBalanceDto: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          organizationId: { type: "string", format: "uuid" },
+          productId: { type: "string", format: "uuid" },
+          warehouseId: { type: "string", format: "uuid" },
+          locationId: { type: "string", format: "uuid" },
+          quantityOnHand: { type: "string", example: "25.0000" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+          product: {
+            type: "object",
+            properties: {
+              id: { type: "string", format: "uuid" },
+              sku: { type: "string", example: "PROD-SKU-001" },
+              name: { type: "string", example: "Wireless Mouse" },
+              unitOfMeasure: { type: "string", example: "PCS" },
+              status: { type: "string", example: "ACTIVE" },
+            },
+          },
+          warehouse: {
+            type: "object",
+            properties: {
+              id: { type: "string", format: "uuid" },
+              code: { type: "string", example: "WH-NYC-01" },
+              name: { type: "string", example: "New York Hub" },
+              status: { type: "string", example: "ACTIVE" },
+            },
+          },
+          location: {
+            type: "object",
+            properties: {
+              id: { type: "string", format: "uuid" },
+              code: { type: "string", example: "AISLE-A1" },
+              name: { type: "string", example: "Aisle A, Shelf 1" },
+              type: { type: "string", example: "SHELF" },
+              status: { type: "string", example: "ACTIVE" },
+            },
+          },
+        },
+      },
+      SafeInventoryTransactionDto: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          organizationId: { type: "string", format: "uuid" },
+          productId: { type: "string", format: "uuid" },
+          warehouseId: { type: "string", format: "uuid", nullable: true },
+          type: {
+            type: "string",
+            enum: ["RECEIPT", "ISSUE", "ADJUSTMENT", "TRANSFER"],
+            example: "RECEIPT",
+          },
+          quantity: { type: "string", example: "25.0000" },
+          quantityDelta: { type: "string", example: "25.0000" },
+          sourceLocationId: { type: "string", format: "uuid", nullable: true },
+          destinationLocationId: { type: "string", format: "uuid", nullable: true },
+          reason: { type: "string", nullable: true, example: "STOCK_COUNT" },
+          reference: { type: "string", nullable: true, example: "PO-1001" },
+          notes: { type: "string", nullable: true, example: "Initial receipt" },
+          idempotencyKey: { type: "string", nullable: true, example: "key-123" },
+          performedByUserId: { type: "string", format: "uuid" },
+          createdAt: { type: "string", format: "date-time" },
+          product: {
+            type: "object",
+            properties: {
+              id: { type: "string", format: "uuid" },
+              sku: { type: "string", example: "PROD-SKU-001" },
+              name: { type: "string", example: "Wireless Mouse" },
+              unitOfMeasure: { type: "string", example: "PCS" },
+            },
+          },
+          performedByUser: {
+            type: "object",
+            properties: {
+              id: { type: "string", format: "uuid" },
+              name: { type: "string", example: "Alice Johnson" },
+              email: { type: "string", format: "email", example: "alice@stockpilot.io" },
+            },
+          },
+        },
+      },
+      PaginatedBalancesResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              items: {
+                type: "array",
+                items: { $ref: "#/components/schemas/SafeInventoryBalanceDto" },
+              },
+              pagination: {
+                type: "object",
+                properties: {
+                  page: { type: "integer", example: 1 },
+                  limit: { type: "integer", example: 20 },
+                  totalItems: { type: "integer", example: 5 },
+                  totalPages: { type: "integer", example: 1 },
+                  hasNextPage: { type: "boolean", example: false },
+                  hasPrevPage: { type: "boolean", example: false },
+                },
+              },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      PaginatedTransactionsResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              items: {
+                type: "array",
+                items: { $ref: "#/components/schemas/SafeInventoryTransactionDto" },
+              },
+              pagination: {
+                type: "object",
+                properties: {
+                  page: { type: "integer", example: 1 },
+                  limit: { type: "integer", example: 20 },
+                  totalItems: { type: "integer", example: 10 },
                   totalPages: { type: "integer", example: 1 },
                   hasNextPage: { type: "boolean", example: false },
                   hasPrevPage: { type: "boolean", example: false },
