@@ -10,7 +10,7 @@ export const swaggerSpec = {
     title: "StockPilot AI — Backend API",
     version: "1.0.0",
     description:
-      "Production-ready modular monolith backend for StockPilot AI SaaS platform. Features secure multi-tenant foundation, dual-token rotation authentication with HttpOnly cookies, system telemetry, and container probes.",
+      "Production-ready modular monolith backend for StockPilot AI SaaS platform. Features secure multi-tenant foundation, RBAC, dual-token rotation authentication with HttpOnly cookies, system telemetry, and container probes.",
     contact: {
       name: "StockPilot AI Engineering",
     },
@@ -39,6 +39,14 @@ export const swaggerSpec = {
         "Multi-tenant organization lifecycle, memberships, and tenant-level access control",
     },
     {
+      name: "Team Members",
+      description: "Organization member listing, role updates, and member removals",
+    },
+    {
+      name: "Invitations",
+      description: "Organization invitation creation, listing, revocation, and acceptance",
+    },
+    {
       name: "Health Probes",
       description: "Container orchestrator probes (liveness, readiness) and system telemetry",
     },
@@ -65,18 +73,24 @@ export const swaggerSpec = {
             description: "Account registered and session established successfully",
             headers: {
               "Set-Cookie": {
-                description: "HttpOnly, SameSite cookie containing rotating refresh token",
-                schema: {
-                  type: "string",
-                  example:
-                    "stockpilot_refresh_token=...; Path=/api/v1/auth; HttpOnly; SameSite=Lax",
-                },
+                description: "HttpOnly rotating refresh token cookie",
+                schema: { type: "string" },
               },
             },
             content: {
               "application/json": {
                 schema: {
                   $ref: "#/components/schemas/AuthSuccessResponse",
+                },
+              },
+            },
+          },
+          "400": {
+            description: "Bad Request: Malformed request payload",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ApiErrorResponse",
                 },
               },
             },
@@ -107,9 +121,9 @@ export const swaggerSpec = {
     "/api/v1/auth/login": {
       post: {
         tags: ["Authentication"],
-        summary: "Log in with credentials",
+        summary: "Authenticate credentials and establish session",
         description:
-          "Verifies user credentials with constant-time protection, establishes an authenticated session, sets an HttpOnly refresh token cookie, and returns an access token.",
+          "Authenticates user by email and password. On success, issues a short-lived access token and an HttpOnly refresh token cookie.",
         requestBody: {
           required: true,
           content: {
@@ -125,12 +139,8 @@ export const swaggerSpec = {
             description: "Authentication successful",
             headers: {
               "Set-Cookie": {
-                description: "HttpOnly, SameSite cookie containing rotating refresh token",
-                schema: {
-                  type: "string",
-                  example:
-                    "stockpilot_refresh_token=...; Path=/api/v1/auth; HttpOnly; SameSite=Lax",
-                },
+                description: "HttpOnly rotating refresh token cookie",
+                schema: { type: "string" },
               },
             },
             content: {
@@ -142,17 +152,7 @@ export const swaggerSpec = {
             },
           },
           "401": {
-            description: "Unauthorized: Invalid credentials or inactive account",
-            content: {
-              "application/json": {
-                schema: {
-                  $ref: "#/components/schemas/ApiErrorResponse",
-                },
-              },
-            },
-          },
-          "422": {
-            description: "Validation error: Invalid email or password structure",
+            description: "Unauthorized: Invalid email or password",
             content: {
               "application/json": {
                 schema: {
@@ -167,31 +167,25 @@ export const swaggerSpec = {
     "/api/v1/auth/refresh": {
       post: {
         tags: ["Authentication"],
-        summary: "Rotate session tokens",
+        summary: "Rotate session refresh token",
         description:
-          "Rotates the presenting refresh token, checks for reuse (revoking entire family if compromise detected), and issues a fresh access token and replacement refresh token cookie.",
-        security: [{ cookieAuth: [] }],
+          "Validates current refresh token from cookie or body, rotates it, and issues replacement access and refresh tokens. Detects reuse and revokes compromised token families.",
         requestBody: {
           required: false,
           content: {
             "application/json": {
               schema: {
-                $ref: "#/components/schemas/RefreshInput",
+                type: "object",
+                properties: {
+                  refreshToken: { type: "string" },
+                },
               },
             },
           },
         },
         responses: {
           "200": {
-            description: "Session rotated successfully",
-            headers: {
-              "Set-Cookie": {
-                description: "Updated HttpOnly refresh token cookie",
-                schema: {
-                  type: "string",
-                },
-              },
-            },
+            description: "Session refreshed and tokens rotated",
             content: {
               "application/json": {
                 schema: {
@@ -281,100 +275,55 @@ export const swaggerSpec = {
         tags: ["Organizations"],
         summary: "Create new organization",
         description:
-          "Creates a new organization and atomically establishes the caller as OWNER in a transaction.",
+          "Creates an isolated organization and establishes the creator as initial OWNER.",
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
             "application/json": {
-              schema: {
-                $ref: "#/components/schemas/CreateOrganizationInput",
-              },
+              schema: { $ref: "#/components/schemas/CreateOrganizationInput" },
             },
           },
         },
         responses: {
           "201": {
-            description: "Organization and owner membership created successfully",
+            description: "Organization created successfully",
             content: {
               "application/json": {
-                schema: {
-                  $ref: "#/components/schemas/CreateOrganizationResponse",
-                },
+                schema: { $ref: "#/components/schemas/CreateOrganizationResponse" },
               },
             },
           },
-          "401": {
-            description: "Unauthorized",
-            content: {
-              "application/json": {
-                schema: {
-                  $ref: "#/components/schemas/ApiErrorResponse",
-                },
-              },
-            },
-          },
-          "422": {
-            description: "Validation error",
-            content: {
-              "application/json": {
-                schema: {
-                  $ref: "#/components/schemas/ApiErrorResponse",
-                },
-              },
-            },
-          },
+          "401": { description: "Unauthorized" },
         },
       },
       get: {
         tags: ["Organizations"],
-        summary: "List user organizations",
-        description: "Returns paginated list of organizations the authenticated user belongs to.",
+        summary: "List caller's organizations",
+        description: "Retrieves organizations the authenticated user belongs to with pagination.",
         security: [{ bearerAuth: [] }],
         parameters: [
-          {
-            name: "page",
-            in: "query",
-            required: false,
-            schema: { type: "integer", default: 1, minimum: 1 },
-          },
-          {
-            name: "limit",
-            in: "query",
-            required: false,
-            schema: { type: "integer", default: 20, minimum: 1, maximum: 100 },
-          },
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
         ],
         responses: {
           "200": {
             description: "Organizations retrieved successfully",
             content: {
               "application/json": {
-                schema: {
-                  $ref: "#/components/schemas/ListOrganizationsResponse",
-                },
+                schema: { $ref: "#/components/schemas/ListOrganizationsResponse" },
               },
             },
           },
-          "401": {
-            description: "Unauthorized",
-            content: {
-              "application/json": {
-                schema: {
-                  $ref: "#/components/schemas/ApiErrorResponse",
-                },
-              },
-            },
-          },
+          "401": { description: "Unauthorized" },
         },
       },
     },
     "/api/v1/organizations/{organizationId}": {
       get: {
         tags: ["Organizations"],
-        summary: "Get organization details",
-        description:
-          "Returns organization details and the caller's role. Restricted to active members.",
+        summary: "Get organization by ID",
+        description: "Retrieves organization details if the caller is an active member.",
         security: [{ bearerAuth: [] }],
         parameters: [
           {
@@ -386,31 +335,20 @@ export const swaggerSpec = {
         ],
         responses: {
           "200": {
-            description: "Organization details retrieved",
+            description: "Organization details",
             content: {
               "application/json": {
-                schema: {
-                  $ref: "#/components/schemas/CreateOrganizationResponse",
-                },
+                schema: { $ref: "#/components/schemas/CreateOrganizationResponse" },
               },
             },
           },
-          "404": {
-            description: "Organization not found (or access denied)",
-            content: {
-              "application/json": {
-                schema: {
-                  $ref: "#/components/schemas/ApiErrorResponse",
-                },
-              },
-            },
-          },
+          "404": { description: "Organization not found" },
         },
       },
       patch: {
         tags: ["Organizations"],
         summary: "Update organization details",
-        description: "Updates organization name and regenerates slug. Restricted to OWNER role.",
+        description: "Updates organization name or details. Restricted to OWNER role.",
         security: [{ bearerAuth: [] }],
         parameters: [
           {
@@ -424,9 +362,7 @@ export const swaggerSpec = {
           required: true,
           content: {
             "application/json": {
-              schema: {
-                $ref: "#/components/schemas/UpdateOrganizationInput",
-              },
+              schema: { $ref: "#/components/schemas/UpdateOrganizationInput" },
             },
           },
         },
@@ -439,45 +375,21 @@ export const swaggerSpec = {
                   type: "object",
                   properties: {
                     success: { type: "boolean", example: true },
-                    data: {
-                      type: "object",
-                      properties: {
-                        organization: { $ref: "#/components/schemas/SafeOrganizationDto" },
-                      },
-                    },
+                    data: { $ref: "#/components/schemas/SafeOrganizationDto" },
                     timestamp: { type: "string", format: "date-time" },
                   },
                 },
               },
             },
           },
-          "403": {
-            description: "Forbidden: Caller is not an organization owner",
-            content: {
-              "application/json": {
-                schema: {
-                  $ref: "#/components/schemas/ApiErrorResponse",
-                },
-              },
-            },
-          },
-          "404": {
-            description: "Organization not found",
-            content: {
-              "application/json": {
-                schema: {
-                  $ref: "#/components/schemas/ApiErrorResponse",
-                },
-              },
-            },
-          },
+          "403": { description: "Forbidden: Caller is not an organization owner" },
+          "404": { description: "Organization not found" },
         },
       },
       delete: {
         tags: ["Organizations"],
         summary: "Deactivate organization",
-        description:
-          "Safely deactivates an organization. Restricted to OWNER role. Preserves data integrity.",
+        description: "Safely deactivates an organization. Restricted to OWNER role.",
         security: [{ bearerAuth: [] }],
         parameters: [
           {
@@ -503,7 +415,6 @@ export const swaggerSpec = {
                           type: "string",
                           example: "Organization deactivated successfully.",
                         },
-                        organizationId: { type: "string", format: "uuid" },
                       },
                     },
                     timestamp: { type: "string", format: "date-time" },
@@ -512,26 +423,356 @@ export const swaggerSpec = {
               },
             },
           },
-          "403": {
-            description: "Forbidden: Caller is not an organization owner",
+          "403": { description: "Forbidden: Caller is not an organization owner" },
+          "404": { description: "Organization not found" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/members": {
+      get: {
+        tags: ["Team Members"],
+        summary: "List organization members",
+        description:
+          "Retrieves members of an organization the caller belongs to. Supports pagination.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+        ],
+        responses: {
+          "200": {
+            description: "Members retrieved successfully",
             content: {
               "application/json": {
                 schema: {
-                  $ref: "#/components/schemas/ApiErrorResponse",
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "object",
+                      properties: {
+                        items: {
+                          type: "array",
+                          items: { $ref: "#/components/schemas/OrganizationMemberDto" },
+                        },
+                        pagination: {
+                          type: "object",
+                          properties: {
+                            page: { type: "integer", example: 1 },
+                            limit: { type: "integer", example: 20 },
+                            total: { type: "integer", example: 2 },
+                            totalPages: { type: "integer", example: 1 },
+                          },
+                        },
+                      },
+                    },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
                 },
               },
             },
           },
-          "404": {
-            description: "Organization not found",
+          "401": { description: "Unauthorized" },
+          "404": { description: "Organization not found" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/members/{membershipId}/role": {
+      patch: {
+        tags: ["Team Members"],
+        summary: "Update member role",
+        description:
+          "Updates an organization member's role to ADMIN or MEMBER. Restricted to OWNER only.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "membershipId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UpdateMemberRoleInput" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Role updated successfully",
             content: {
               "application/json": {
                 schema: {
-                  $ref: "#/components/schemas/ApiErrorResponse",
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/OrganizationMemberDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
                 },
               },
             },
           },
+          "400": { description: "Bad Request: Prohibited role change or OWNER demotion" },
+          "403": { description: "Forbidden: Caller is not an organization owner" },
+          "404": { description: "Member or organization not found" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/members/{membershipId}": {
+      delete: {
+        tags: ["Team Members"],
+        summary: "Remove member from organization",
+        description:
+          "Removes a member from the organization. OWNER can remove any non-OWNER; ADMIN can only remove MEMBERs.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "membershipId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Member removed successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "object",
+                      properties: {
+                        message: { type: "string", example: "Member removed successfully." },
+                      },
+                    },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Bad Request: Cannot remove OWNER" },
+          "403": { description: "Forbidden: Insufficient permissions to remove target" },
+          "404": { description: "Member or organization not found" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/invitations": {
+      post: {
+        tags: ["Invitations"],
+        summary: "Issue an organization invitation",
+        description:
+          "Issues an expiring invitation to join the organization as ADMIN or MEMBER. Restricted to OWNER or ADMIN.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/CreateInvitationInput" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Invitation issued successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeInvitationDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Bad Request: Cannot invite as OWNER" },
+          "403": { description: "Forbidden: Regular members cannot invite" },
+          "409": { description: "Conflict: User is already an active member" },
+        },
+      },
+      get: {
+        tags: ["Invitations"],
+        summary: "List pending invitations",
+        description:
+          "Returns pending, unexpired invitations for the organization. Token hashes are omitted.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+        ],
+        responses: {
+          "200": {
+            description: "Pending invitations retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "object",
+                      properties: {
+                        items: {
+                          type: "array",
+                          items: { $ref: "#/components/schemas/SafeInvitationDto" },
+                        },
+                        pagination: {
+                          type: "object",
+                          properties: {
+                            page: { type: "integer", example: 1 },
+                            limit: { type: "integer", example: 20 },
+                            total: { type: "integer", example: 1 },
+                            totalPages: { type: "integer", example: 1 },
+                          },
+                        },
+                      },
+                    },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "403": { description: "Forbidden" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/invitations/{invitationId}": {
+      delete: {
+        tags: ["Invitations"],
+        summary: "Revoke pending invitation",
+        description: "Revokes a pending organization invitation. Restricted to OWNER or ADMIN.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "invitationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Invitation revoked successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "object",
+                      properties: {
+                        message: { type: "string", example: "Invitation revoked successfully." },
+                      },
+                    },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "403": { description: "Forbidden" },
+          "404": { description: "Invitation not found" },
+        },
+      },
+    },
+    "/api/v1/invitations/accept": {
+      post: {
+        tags: ["Invitations"],
+        summary: "Accept an invitation",
+        description:
+          "Accepts an invitation using the cryptographic token. Requires matching logged-in user email.",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/AcceptInvitationInput" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Invitation accepted and membership established",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "object",
+                      properties: {
+                        membership: {
+                          type: "object",
+                          properties: {
+                            id: { type: "string", format: "uuid" },
+                            organizationId: { type: "string", format: "uuid" },
+                            role: { type: "string", enum: ["ADMIN", "MEMBER"] },
+                            createdAt: { type: "string", format: "date-time" },
+                          },
+                        },
+                        organization: { $ref: "#/components/schemas/SafeOrganizationDto" },
+                      },
+                    },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Bad Request: Invalid, expired, or already used token" },
+          "403": { description: "Forbidden: Authenticated email does not match invitation" },
+          "409": { description: "Conflict: Caller is already an active member" },
         },
       },
     },
@@ -539,8 +780,7 @@ export const swaggerSpec = {
       get: {
         tags: ["Health Probes"],
         summary: "Liveness probe",
-        description:
-          "Fast sub-millisecond process liveness check for container orchestrators (Kubernetes, AWS ECS, GCP).",
+        description: "Fast sub-millisecond process liveness check for container orchestrators.",
         responses: {
           "200": {
             description: "Process is live and operational",
@@ -571,65 +811,21 @@ export const swaggerSpec = {
       get: {
         tags: ["Health Probes"],
         summary: "Readiness probe",
-        description:
-          "Dependency readiness check verifying database connectivity. Returns 503 if dependencies fail.",
+        description: "Validates database connectivity and service readiness.",
         responses: {
-          "200": {
-            description: "Dependencies ready to accept traffic",
-            content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  properties: {
-                    success: { type: "boolean", example: true },
-                    data: {
-                      type: "object",
-                      properties: {
-                        status: { type: "string", example: "ready" },
-                        isReady: { type: "boolean", example: true },
-                        dependencies: {
-                          type: "object",
-                          properties: {
-                            database: {
-                              type: "object",
-                              properties: {
-                                isHealthy: { type: "boolean", example: true },
-                                latencyMs: { type: "number", example: 4 },
-                              },
-                            },
-                          },
-                        },
-                      },
-                    },
-                    timestamp: { type: "string", format: "date-time" },
-                  },
-                },
-              },
-            },
-          },
-          "503": {
-            description: "Service unavailable: One or more dependencies unreachable",
-            content: {
-              "application/json": {
-                schema: {
-                  $ref: "#/components/schemas/ApiErrorResponse",
-                },
-              },
-            },
-          },
+          "200": { description: "Service is fully ready to handle ingress traffic" },
+          "503": { description: "Service unavailable: Critical dependencies unreachable" },
         },
       },
     },
     "/health": {
       get: {
         tags: ["Health Probes"],
-        summary: "System health and telemetry",
+        summary: "Comprehensive health and telemetry",
         description:
-          "Returns comprehensive system telemetry including Node runtime, memory usage, and uptime.",
+          "Returns detailed system overview, process telemetry, and database connectivity status.",
         responses: {
-          "200": {
-            description: "Telemetry payload",
-          },
+          "200": { description: "Telemetry collected successfully" },
         },
       },
     },
@@ -640,51 +836,42 @@ export const swaggerSpec = {
         type: "http",
         scheme: "bearer",
         bearerFormat: "JWT",
-        description: "Standard JWT access token issued at login/register/refresh",
+        description: "Standard JSON Web Token passed in Authorization header: Bearer <token>",
       },
       cookieAuth: {
         type: "apiKey",
         in: "cookie",
         name: "stockpilot_refresh_token",
-        description: "Rotating session refresh token stored in HttpOnly cookie",
+        description: "Secure HttpOnly cookie containing rotating refresh token",
       },
     },
     schemas: {
-      SafeUserDto: {
-        type: "object",
-        properties: {
-          id: { type: "string", format: "uuid", example: "c1f7b029-798c-4a35-866f-427902d18408" },
-          name: { type: "string", example: "Alex Mercer" },
-          email: { type: "string", format: "email", example: "alex@example.com" },
-          status: { type: "string", example: "ACTIVE" },
-          createdAt: { type: "string", format: "date-time" },
-          updatedAt: { type: "string", format: "date-time" },
-        },
-      },
       RegisterInput: {
         type: "object",
         required: ["name", "email", "password"],
         properties: {
-          name: { type: "string", minLength: 2, maxLength: 100, example: "Alex Mercer" },
-          email: { type: "string", format: "email", example: "alex@example.com" },
-          password: { type: "string", minLength: 8, maxLength: 128, example: "StrongPassword123!" },
+          name: { type: "string", minLength: 2, maxLength: 50, example: "Sarah Connor" },
+          email: { type: "string", format: "email", example: "sarah.connor@stockpilot.ai" },
+          password: { type: "string", minLength: 8, maxLength: 128, example: "SecretPassword123!" },
         },
       },
       LoginInput: {
         type: "object",
         required: ["email", "password"],
         properties: {
-          email: { type: "string", format: "email", example: "alex@example.com" },
-          password: { type: "string", example: "StrongPassword123!" },
+          email: { type: "string", format: "email", example: "sarah.connor@stockpilot.ai" },
+          password: { type: "string", example: "SecretPassword123!" },
         },
       },
-      RefreshInput: {
+      SafeUserDto: {
         type: "object",
         properties: {
-          refreshToken: {
-            type: "string",
-            description: "Optional fallback refresh token when not using cookies",
-          },
+          id: { type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440000" },
+          name: { type: "string", example: "Sarah Connor" },
+          email: { type: "string", format: "email", example: "sarah.connor@stockpilot.ai" },
+          status: { type: "string", example: "ACTIVE" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
         },
       },
       AuthSuccessResponse: {
@@ -695,10 +882,7 @@ export const swaggerSpec = {
             type: "object",
             properties: {
               user: { $ref: "#/components/schemas/SafeUserDto" },
-              accessToken: {
-                type: "string",
-                example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-              },
+              accessToken: { type: "string", example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
             },
           },
           timestamp: { type: "string", format: "date-time" },
@@ -750,10 +934,48 @@ export const swaggerSpec = {
           {
             type: "object",
             properties: {
-              role: { type: "string", enum: ["OWNER", "MEMBER"], example: "OWNER" },
+              role: { type: "string", enum: ["OWNER", "ADMIN", "MEMBER"], example: "OWNER" },
             },
           },
         ],
+      },
+      OrganizationMemberDto: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          userId: { type: "string", format: "uuid" },
+          organizationId: { type: "string", format: "uuid" },
+          role: { type: "string", enum: ["OWNER", "ADMIN", "MEMBER"], example: "MEMBER" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+          user: {
+            type: "object",
+            properties: {
+              id: { type: "string", format: "uuid" },
+              name: { type: "string", example: "Alice Smith" },
+              email: { type: "string", format: "email", example: "alice@example.com" },
+            },
+          },
+        },
+      },
+      SafeInvitationDto: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          organizationId: { type: "string", format: "uuid" },
+          email: { type: "string", format: "email", example: "teammate@example.com" },
+          role: { type: "string", enum: ["ADMIN", "MEMBER"], example: "MEMBER" },
+          expiresAt: { type: "string", format: "date-time" },
+          createdAt: { type: "string", format: "date-time" },
+          invitedBy: {
+            type: "object",
+            properties: {
+              id: { type: "string", format: "uuid" },
+              name: { type: "string" },
+              email: { type: "string" },
+            },
+          },
+        },
       },
       CreateOrganizationInput: {
         type: "object",
@@ -768,6 +990,28 @@ export const swaggerSpec = {
           name: { type: "string", minLength: 2, maxLength: 100, example: "Acme Supply Chain" },
         },
       },
+      UpdateMemberRoleInput: {
+        type: "object",
+        required: ["role"],
+        properties: {
+          role: { type: "string", enum: ["ADMIN", "MEMBER"], example: "ADMIN" },
+        },
+      },
+      CreateInvitationInput: {
+        type: "object",
+        required: ["email", "role"],
+        properties: {
+          email: { type: "string", format: "email", example: "new.member@acme.com" },
+          role: { type: "string", enum: ["ADMIN", "MEMBER"], example: "MEMBER" },
+        },
+      },
+      AcceptInvitationInput: {
+        type: "object",
+        required: ["token"],
+        properties: {
+          token: { type: "string", minLength: 1, maxLength: 256, example: "4f9d2e1a8b3c..." },
+        },
+      },
       CreateOrganizationResponse: {
         type: "object",
         properties: {
@@ -776,7 +1020,7 @@ export const swaggerSpec = {
             type: "object",
             properties: {
               organization: { $ref: "#/components/schemas/SafeOrganizationDto" },
-              role: { type: "string", enum: ["OWNER", "MEMBER"], example: "OWNER" },
+              role: { type: "string", enum: ["OWNER", "ADMIN", "MEMBER"], example: "OWNER" },
             },
           },
           timestamp: { type: "string", format: "date-time" },

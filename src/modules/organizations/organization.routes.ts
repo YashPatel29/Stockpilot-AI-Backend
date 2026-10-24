@@ -2,6 +2,8 @@ import { Router } from "express";
 import { validateRequest } from "../../common/middleware/validate.middleware";
 import { authenticate } from "../auth/auth.middleware";
 import { OrganizationController, organizationController } from "./organization.controller";
+import { memberRouter } from "./members/member.routes";
+import { orgInvitationRouter } from "./invitations/invitation.routes";
 import {
   createOrganizationSchema,
   updateOrganizationSchema,
@@ -20,6 +22,10 @@ export function createOrganizationRouter(
 
   // All organization routes require authenticated user session
   router.use(authenticate);
+
+  // Subroutes for organization members and invitations
+  router.use("/:organizationId/members", memberRouter);
+  router.use("/:organizationId/invitations", orgInvitationRouter);
 
   // POST /api/v1/organizations - Create organization + owner membership
   router.post(

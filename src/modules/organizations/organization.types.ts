@@ -58,4 +58,3 @@ export interface OrganizationDetailResult {
   organization: SafeOrganizationDto;
   role: OrganizationRole;
 }
-

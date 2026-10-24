@@ -125,4 +125,3 @@ export class OrganizationController {
 }
 
 export const organizationController = new OrganizationController();
-

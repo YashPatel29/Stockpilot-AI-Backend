@@ -1,4 +1,5 @@
 // Express Request augmentation for request tracking, correlation IDs, and authenticated user/org context
+import type { OrganizationRole } from "@prisma/client";
 
 export interface AuthenticatedUser {
   id: string;
@@ -20,7 +21,7 @@ export interface AuthenticatedMembership {
   id: string;
   userId: string;
   organizationId: string;
-  role: "OWNER" | "MEMBER";
+  role: OrganizationRole;
   createdAt: string;
   updatedAt: string;
 }

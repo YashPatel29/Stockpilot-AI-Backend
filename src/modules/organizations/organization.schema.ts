@@ -53,4 +53,3 @@ export const listOrganizationsQuerySchema = z.object({
 });
 
 export type ListOrganizationsQuery = z.infer<typeof listOrganizationsQuerySchema>;
-
