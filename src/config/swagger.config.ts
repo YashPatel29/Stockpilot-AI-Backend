@@ -55,6 +55,26 @@ export const swaggerSpec = {
       description: "Inventory product management, SKU tracking, pricing, and soft-archiving",
     },
     {
+      name: "Warehouses",
+      description:
+        "Physical storage facility management, address information, and soft-deactivation",
+    },
+    {
+      name: "Storage Locations",
+      description:
+        "Warehouse storage locations (aisle, rack, shelf, bin) management and status tracking",
+    },
+    {
+      name: "Warehouses",
+      description:
+        "Physical storage facility management, address information, and soft-deactivation",
+    },
+    {
+      name: "Storage Locations",
+      description:
+        "Warehouse storage locations (aisle, rack, shelf, bin) management and status tracking",
+    },
+    {
       name: "Health Probes",
       description: "Container orchestrator probes (liveness, readiness) and system telemetry",
     },
@@ -1332,6 +1352,542 @@ export const swaggerSpec = {
         },
       },
     },
+    "/api/v1/organizations/{organizationId}/warehouses": {
+      post: {
+        tags: ["Warehouses"],
+        summary: "Create warehouse",
+        description:
+          "Creates a new warehouse facility within the organization. Enforces code uniqueness per tenant. Requires OWNER or ADMIN role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/CreateWarehouseInput" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Warehouse created successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeWarehouseDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Validation error" },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Organization not found" },
+          "409": { description: "Conflict: Warehouse code already exists in organization" },
+        },
+      },
+      get: {
+        tags: ["Warehouses"],
+        summary: "List warehouses",
+        description:
+          "Lists warehouses with search across code/name, status filter, sorting, and pagination. Requires OWNER, ADMIN, or MEMBER role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "page",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 1 },
+          },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 20 },
+          },
+          {
+            name: "search",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+          },
+          {
+            name: "status",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["ACTIVE", "INACTIVE", "ALL"], default: "ACTIVE" },
+          },
+          {
+            name: "sortBy",
+            in: "query",
+            required: false,
+            schema: {
+              type: "string",
+              enum: ["name", "code", "createdAt", "updatedAt"],
+              default: "createdAt",
+            },
+          },
+          {
+            name: "sortOrder",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["asc", "desc"], default: "desc" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Warehouses retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PaginatedWarehousesResponse" },
+              },
+            },
+          },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Organization not found" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/warehouses/{warehouseId}": {
+      get: {
+        tags: ["Warehouses"],
+        summary: "Get warehouse by ID",
+        description:
+          "Retrieves a single warehouse by ID scoped to the organization. Requires OWNER, ADMIN, or MEMBER role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "warehouseId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Warehouse retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeWarehouseDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Warehouse not found" },
+        },
+      },
+      patch: {
+        tags: ["Warehouses"],
+        summary: "Update warehouse",
+        description:
+          "Updates warehouse details. If setting status to INACTIVE, cascades deactivation to all storage locations. Requires OWNER or ADMIN role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "warehouseId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UpdateWarehouseInput" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Warehouse updated successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeWarehouseDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Validation error" },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Warehouse not found" },
+          "409": { description: "Conflict: Warehouse code already in use" },
+        },
+      },
+      delete: {
+        tags: ["Warehouses"],
+        summary: "Deactivate warehouse",
+        description:
+          "Soft-deactivates the warehouse and atomically cascades deactivation to all child storage locations. Requires OWNER or ADMIN role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "warehouseId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Warehouse deactivated successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeWarehouseDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Warehouse not found" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/warehouses/{warehouseId}/locations": {
+      post: {
+        tags: ["Storage Locations"],
+        summary: "Create storage location",
+        description:
+          "Creates a new storage location inside an active warehouse. Rejects creation if warehouse is inactive. Requires OWNER or ADMIN role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "warehouseId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/CreateLocationInput" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Storage location created successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeStorageLocationDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Validation error or warehouse is inactive" },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Warehouse not found" },
+          "409": { description: "Conflict: Location code already exists in warehouse" },
+        },
+      },
+      get: {
+        tags: ["Storage Locations"],
+        summary: "List storage locations",
+        description:
+          "Lists storage locations within a warehouse with search, type filter, status filter, and pagination. Requires OWNER, ADMIN, or MEMBER role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "warehouseId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "page",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 1 },
+          },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 20 },
+          },
+          {
+            name: "search",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+          },
+          {
+            name: "type",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+          },
+          {
+            name: "status",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["ACTIVE", "INACTIVE", "ALL"], default: "ACTIVE" },
+          },
+          {
+            name: "sortBy",
+            in: "query",
+            required: false,
+            schema: {
+              type: "string",
+              enum: ["code", "name", "type", "createdAt", "updatedAt"],
+              default: "code",
+            },
+          },
+          {
+            name: "sortOrder",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["asc", "desc"], default: "asc" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Storage locations retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PaginatedLocationsResponse" },
+              },
+            },
+          },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Warehouse not found" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/warehouses/{warehouseId}/locations/{locationId}": {
+      get: {
+        tags: ["Storage Locations"],
+        summary: "Get storage location by ID",
+        description:
+          "Retrieves a single storage location by ID scoped to the warehouse and organization. Requires OWNER, ADMIN, or MEMBER role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "warehouseId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "locationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Storage location retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeStorageLocationDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Storage location not found" },
+        },
+      },
+      patch: {
+        tags: ["Storage Locations"],
+        summary: "Update storage location",
+        description:
+          "Updates storage location details. Cannot activate a location if the parent warehouse is inactive. Requires OWNER or ADMIN role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "warehouseId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "locationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UpdateLocationInput" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Storage location updated successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeStorageLocationDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Validation error or warehouse is inactive" },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Storage location not found" },
+          "409": { description: "Conflict: Location code already in use" },
+        },
+      },
+      delete: {
+        tags: ["Storage Locations"],
+        summary: "Deactivate storage location",
+        description:
+          "Soft-deactivates the storage location by setting status to INACTIVE. Requires OWNER or ADMIN role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "warehouseId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "locationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Storage location deactivated successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeStorageLocationDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Storage location not found" },
+        },
+      },
+    },
     "/health/ready": {
       get: {
         tags: ["Health Probes"],
@@ -1706,6 +2262,154 @@ export const swaggerSpec = {
                   totalItems: { type: "integer", example: 100 },
                   totalPages: { type: "integer", example: 5 },
                   hasNextPage: { type: "boolean", example: true },
+                  hasPrevPage: { type: "boolean", example: false },
+                },
+              },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      CreateWarehouseInput: {
+        type: "object",
+        required: ["code", "name"],
+        properties: {
+          code: { type: "string", minLength: 1, maxLength: 50, example: "WH-NYC-01" },
+          name: {
+            type: "string",
+            minLength: 1,
+            maxLength: 150,
+            example: "New York Main Distribution Hub",
+          },
+          description: {
+            type: "string",
+            maxLength: 1000,
+            example: "Primary East Coast fulfillment warehouse",
+          },
+          addressLine1: { type: "string", maxLength: 255, example: "123 Logistics Way" },
+          addressLine2: { type: "string", maxLength: 255, example: "Building B" },
+          city: { type: "string", maxLength: 100, example: "Brooklyn" },
+          state: { type: "string", maxLength: 100, example: "NY" },
+          postalCode: { type: "string", maxLength: 30, example: "11201" },
+          country: { type: "string", maxLength: 100, example: "United States" },
+        },
+      },
+      UpdateWarehouseInput: {
+        type: "object",
+        properties: {
+          code: { type: "string", minLength: 1, maxLength: 50, example: "WH-NYC-02" },
+          name: { type: "string", minLength: 1, maxLength: 150, example: "New York Hub Updated" },
+          description: { type: "string", maxLength: 1000 },
+          addressLine1: { type: "string", maxLength: 255 },
+          addressLine2: { type: "string", maxLength: 255 },
+          city: { type: "string", maxLength: 100 },
+          state: { type: "string", maxLength: 100 },
+          postalCode: { type: "string", maxLength: 30 },
+          country: { type: "string", maxLength: 100 },
+          status: { type: "string", enum: ["ACTIVE", "INACTIVE"], example: "ACTIVE" },
+        },
+      },
+      SafeWarehouseDto: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          organizationId: { type: "string", format: "uuid" },
+          code: { type: "string", example: "WH-NYC-01" },
+          name: { type: "string", example: "New York Main Distribution Hub" },
+          description: { type: "string", nullable: true },
+          addressLine1: { type: "string", nullable: true },
+          addressLine2: { type: "string", nullable: true },
+          city: { type: "string", nullable: true },
+          state: { type: "string", nullable: true },
+          postalCode: { type: "string", nullable: true },
+          country: { type: "string", nullable: true },
+          status: { type: "string", enum: ["ACTIVE", "INACTIVE"], example: "ACTIVE" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+          locationCount: { type: "integer", example: 12 },
+        },
+      },
+      PaginatedWarehousesResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              items: {
+                type: "array",
+                items: { $ref: "#/components/schemas/SafeWarehouseDto" },
+              },
+              pagination: {
+                type: "object",
+                properties: {
+                  page: { type: "integer", example: 1 },
+                  limit: { type: "integer", example: 20 },
+                  totalItems: { type: "integer", example: 5 },
+                  totalPages: { type: "integer", example: 1 },
+                  hasNextPage: { type: "boolean", example: false },
+                  hasPrevPage: { type: "boolean", example: false },
+                },
+              },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      CreateLocationInput: {
+        type: "object",
+        required: ["code", "name"],
+        properties: {
+          code: { type: "string", minLength: 1, maxLength: 50, example: "RACK-A-01" },
+          name: { type: "string", minLength: 1, maxLength: 150, example: "Aisle A Rack 1" },
+          description: { type: "string", maxLength: 1000, example: "Heavy load pallet storage" },
+          type: { type: "string", maxLength: 50, example: "RACK" },
+        },
+      },
+      UpdateLocationInput: {
+        type: "object",
+        properties: {
+          code: { type: "string", minLength: 1, maxLength: 50, example: "RACK-A-02" },
+          name: { type: "string", minLength: 1, maxLength: 150, example: "Aisle A Rack 2" },
+          description: { type: "string", maxLength: 1000 },
+          type: { type: "string", maxLength: 50, example: "SHELF" },
+          status: { type: "string", enum: ["ACTIVE", "INACTIVE"], example: "ACTIVE" },
+        },
+      },
+      SafeStorageLocationDto: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          organizationId: { type: "string", format: "uuid" },
+          warehouseId: { type: "string", format: "uuid" },
+          code: { type: "string", example: "RACK-A-01" },
+          name: { type: "string", example: "Aisle A Rack 1" },
+          description: { type: "string", nullable: true },
+          type: { type: "string", nullable: true, example: "RACK" },
+          status: { type: "string", enum: ["ACTIVE", "INACTIVE"], example: "ACTIVE" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      PaginatedLocationsResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              items: {
+                type: "array",
+                items: { $ref: "#/components/schemas/SafeStorageLocationDto" },
+              },
+              pagination: {
+                type: "object",
+                properties: {
+                  page: { type: "integer", example: 1 },
+                  limit: { type: "integer", example: 20 },
+                  totalItems: { type: "integer", example: 15 },
+                  totalPages: { type: "integer", example: 1 },
+                  hasNextPage: { type: "boolean", example: false },
                   hasPrevPage: { type: "boolean", example: false },
                 },
               },

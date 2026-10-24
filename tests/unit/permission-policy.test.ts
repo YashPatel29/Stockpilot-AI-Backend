@@ -22,6 +22,10 @@ describe("RBAC Permissions Catalog & Invariants (Unit)", () => {
     expect(ownerPerms).toContain(Permissions.CATALOG_CATEGORIES_WRITE);
     expect(ownerPerms).toContain(Permissions.CATALOG_PRODUCTS_READ);
     expect(ownerPerms).toContain(Permissions.CATALOG_PRODUCTS_WRITE);
+    expect(ownerPerms).toContain(Permissions.WAREHOUSES_READ);
+    expect(ownerPerms).toContain(Permissions.WAREHOUSES_WRITE);
+    expect(ownerPerms).toContain(Permissions.LOCATIONS_READ);
+    expect(ownerPerms).toContain(Permissions.LOCATIONS_WRITE);
   });
 
   it("should assign operational permissions to ADMIN excluding settings & role assignment", () => {
@@ -35,6 +39,10 @@ describe("RBAC Permissions Catalog & Invariants (Unit)", () => {
     expect(adminPerms).toContain(Permissions.CATALOG_CATEGORIES_WRITE);
     expect(adminPerms).toContain(Permissions.CATALOG_PRODUCTS_READ);
     expect(adminPerms).toContain(Permissions.CATALOG_PRODUCTS_WRITE);
+    expect(adminPerms).toContain(Permissions.WAREHOUSES_READ);
+    expect(adminPerms).toContain(Permissions.WAREHOUSES_WRITE);
+    expect(adminPerms).toContain(Permissions.LOCATIONS_READ);
+    expect(adminPerms).toContain(Permissions.LOCATIONS_WRITE);
     expect(adminPerms).not.toContain(Permissions.ORG_MEMBERS_ROLE_UPDATE);
     expect(adminPerms).not.toContain(Permissions.ORG_SETTINGS_MANAGE);
   });
@@ -45,14 +53,20 @@ describe("RBAC Permissions Catalog & Invariants (Unit)", () => {
       Permissions.ORG_MEMBERS_READ,
       Permissions.CATALOG_CATEGORIES_READ,
       Permissions.CATALOG_PRODUCTS_READ,
+      Permissions.WAREHOUSES_READ,
+      Permissions.LOCATIONS_READ,
     ]);
     expect(hasPermission(OrganizationRole.MEMBER, Permissions.ORG_MEMBERS_READ)).toBe(true);
     expect(hasPermission(OrganizationRole.MEMBER, Permissions.CATALOG_CATEGORIES_READ)).toBe(true);
     expect(hasPermission(OrganizationRole.MEMBER, Permissions.CATALOG_PRODUCTS_READ)).toBe(true);
+    expect(hasPermission(OrganizationRole.MEMBER, Permissions.WAREHOUSES_READ)).toBe(true);
+    expect(hasPermission(OrganizationRole.MEMBER, Permissions.LOCATIONS_READ)).toBe(true);
     expect(hasPermission(OrganizationRole.MEMBER, Permissions.CATALOG_CATEGORIES_WRITE)).toBe(
       false,
     );
     expect(hasPermission(OrganizationRole.MEMBER, Permissions.CATALOG_PRODUCTS_WRITE)).toBe(false);
+    expect(hasPermission(OrganizationRole.MEMBER, Permissions.WAREHOUSES_WRITE)).toBe(false);
+    expect(hasPermission(OrganizationRole.MEMBER, Permissions.LOCATIONS_WRITE)).toBe(false);
     expect(hasPermission(OrganizationRole.MEMBER, Permissions.ORG_INVITATIONS_CREATE)).toBe(false);
   });
 });

@@ -24,6 +24,14 @@ export const Permissions = {
   // Product management
   CATALOG_PRODUCTS_READ: "catalog:products:read",
   CATALOG_PRODUCTS_WRITE: "catalog:products:write",
+
+  // Warehouse management
+  WAREHOUSES_READ: "warehouses:read",
+  WAREHOUSES_WRITE: "warehouses:write",
+
+  // Storage location management
+  LOCATIONS_READ: "locations:read",
+  LOCATIONS_WRITE: "locations:write",
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions];
@@ -46,6 +54,10 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.CATALOG_CATEGORIES_WRITE,
     Permissions.CATALOG_PRODUCTS_READ,
     Permissions.CATALOG_PRODUCTS_WRITE,
+    Permissions.WAREHOUSES_READ,
+    Permissions.WAREHOUSES_WRITE,
+    Permissions.LOCATIONS_READ,
+    Permissions.LOCATIONS_WRITE,
   ],
   [OrganizationRole.ADMIN]: [
     Permissions.ORG_MEMBERS_READ,
@@ -57,11 +69,17 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.CATALOG_CATEGORIES_WRITE,
     Permissions.CATALOG_PRODUCTS_READ,
     Permissions.CATALOG_PRODUCTS_WRITE,
+    Permissions.WAREHOUSES_READ,
+    Permissions.WAREHOUSES_WRITE,
+    Permissions.LOCATIONS_READ,
+    Permissions.LOCATIONS_WRITE,
   ],
   [OrganizationRole.MEMBER]: [
     Permissions.ORG_MEMBERS_READ,
     Permissions.CATALOG_CATEGORIES_READ,
     Permissions.CATALOG_PRODUCTS_READ,
+    Permissions.WAREHOUSES_READ,
+    Permissions.LOCATIONS_READ,
   ],
 };
 

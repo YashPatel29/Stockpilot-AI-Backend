@@ -26,8 +26,10 @@ model Organization {
   updatedAt   DateTime                 @updatedAt @map("updated_at")
   memberships OrganizationMembership[]
   invitations OrganizationInvitation[]
-  categories  ProductCategory[]
-  products    Product[]
+  categories       ProductCategory[]
+  products         Product[]
+  warehouses       Warehouse[]
+  storageLocations StorageLocation[]
 
   @@index([slug])
   @@map("organizations")
@@ -161,3 +163,67 @@ model Product {
   @@index([organizationId, name])
   @@map("products")
 }
+
+/// Operational status for warehouses.
+enum WarehouseStatus {
+  ACTIVE
+  INACTIVE
+}
+
+/// Operational status for storage locations within warehouses.
+enum LocationStatus {
+  ACTIVE
+  INACTIVE
+}
+
+/// Physical storage facility owned by an organization.
+model Warehouse {
+  id             String          @id @default(uuid())
+  organizationId String          @map("organization_id")
+  code           String
+  name           String
+  description    String?
+  addressLine1   String?         @map("address_line1")
+  addressLine2   String?         @map("address_line2")
+  city           String?
+  state          String?
+  postalCode     String?         @map("postal_code")
+  country        String?
+  status         WarehouseStatus @default(ACTIVE)
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  locations    StorageLocation[]
+
+  @@unique([organizationId, code])
+  @@unique([id, organizationId])
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, name])
+  @@map("warehouses")
+}
+
+/// Storage location within a warehouse (aisle, rack, shelf, bin).
+model StorageLocation {
+  id             String         @id @default(uuid())
+  organizationId String         @map("organization_id")
+  warehouseId    String         @map("warehouse_id")
+  code           String
+  name           String
+  description    String?
+  type           String?
+  status         LocationStatus @default(ACTIVE)
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  warehouse    Warehouse    @relation(fields: [warehouseId, organizationId], references: [id, organizationId], onDelete: Cascade)
+
+  @@unique([warehouseId, code])
+  @@index([warehouseId])
+  @@index([organizationId])
+  @@index([warehouseId, status])
+  @@map("storage_locations")
+}
+
