@@ -4,6 +4,8 @@ import { authenticate } from "../auth/auth.middleware";
 import { OrganizationController, organizationController } from "./organization.controller";
 import { memberRouter } from "./members/member.routes";
 import { orgInvitationRouter } from "./invitations/invitation.routes";
+import { categoryRouter } from "../products/categories/category.routes";
+import { productRouter } from "../products/products/product.routes";
 import {
   createOrganizationSchema,
   updateOrganizationSchema,
@@ -23,9 +25,11 @@ export function createOrganizationRouter(
   // All organization routes require authenticated user session
   router.use(authenticate);
 
-  // Subroutes for organization members and invitations
+  // Subroutes for organization members, invitations, categories, and products
   router.use("/:organizationId/members", memberRouter);
   router.use("/:organizationId/invitations", orgInvitationRouter);
+  router.use("/:organizationId/categories", categoryRouter);
+  router.use("/:organizationId/products", productRouter);
 
   // POST /api/v1/organizations - Create organization + owner membership
   router.post(

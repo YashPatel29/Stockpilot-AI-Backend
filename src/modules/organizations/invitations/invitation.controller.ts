@@ -152,7 +152,8 @@ export class InvitationController {
         throw new UnauthorizedError("Authentication required.");
       }
 
-      const body = req.body as (Partial<AcceptInvitationInput> & { invitationId?: string }) | undefined;
+      const body = req.body as
+        (Partial<AcceptInvitationInput> & { invitationId?: string }) | undefined;
       const token =
         body?.token ||
         body?.invitationId ||

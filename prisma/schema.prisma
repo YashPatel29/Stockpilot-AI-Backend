@@ -26,6 +26,8 @@ model Organization {
   updatedAt   DateTime                 @updatedAt @map("updated_at")
   memberships OrganizationMembership[]
   invitations OrganizationInvitation[]
+  categories  ProductCategory[]
+  products    Product[]
 
   @@index([slug])
   @@map("organizations")
@@ -108,4 +110,54 @@ model RefreshToken {
   @@index([tokenHash])
   @@index([familyId])
   @@map("refresh_tokens")
+}
+
+/// Lifecycle status for inventory products.
+enum ProductStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+/// Product categories within an organization for catalog classification.
+model ProductCategory {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  name           String
+  description    String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products     Product[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("product_categories")
+}
+
+/// Inventory products owned by an organization, supporting SKU tracking, pricing, and status.
+model Product {
+  id                String        @id @default(uuid())
+  organizationId    String        @map("organization_id")
+  categoryId        String?       @map("category_id")
+  sku               String
+  name              String
+  description       String?
+  unitOfMeasure     String        @default("PCS") @map("unit_of_measure")
+  costPrice         Decimal       @default(0) @map("cost_price") @db.Decimal(12, 4)
+  sellingPrice      Decimal       @default(0) @map("selling_price") @db.Decimal(12, 4)
+  lowStockThreshold Int           @default(0) @map("low_stock_threshold")
+  status            ProductStatus @default(ACTIVE)
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, sku])
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, categoryId])
+  @@index([organizationId, name])
+  @@map("products")
 }

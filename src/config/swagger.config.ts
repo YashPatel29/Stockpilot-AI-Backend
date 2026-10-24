@@ -47,6 +47,14 @@ export const swaggerSpec = {
       description: "Organization invitation creation, listing, revocation, and acceptance",
     },
     {
+      name: "Categories",
+      description: "Product categories for catalog classification within an organization",
+    },
+    {
+      name: "Products",
+      description: "Inventory product management, SKU tracking, pricing, and soft-archiving",
+    },
+    {
       name: "Health Probes",
       description: "Container orchestrator probes (liveness, readiness) and system telemetry",
     },
@@ -807,6 +815,523 @@ export const swaggerSpec = {
         },
       },
     },
+    "/api/v1/organizations/{organizationId}/categories": {
+      post: {
+        tags: ["Categories"],
+        summary: "Create product category",
+        description:
+          "Creates a new product category within the organization. Enforces case-insensitive uniqueness. Requires OWNER or ADMIN role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/CreateCategoryInput" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Category created successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeProductCategoryDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Validation error" },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden: Insufficient permissions" },
+          "404": { description: "Organization not found" },
+          "409": {
+            description: "Conflict: Category with this name already exists in organization",
+          },
+        },
+      },
+      get: {
+        tags: ["Categories"],
+        summary: "List product categories",
+        description:
+          "Lists categories within the organization with optional search filter and pagination. Requires OWNER, ADMIN, or MEMBER role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "page",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 1 },
+          },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 20 },
+          },
+          {
+            name: "search",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+          },
+          {
+            name: "sortBy",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["name", "createdAt"], default: "name" },
+          },
+          {
+            name: "sortOrder",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["asc", "desc"], default: "asc" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Categories retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PaginatedCategoriesResponse" },
+              },
+            },
+          },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Organization not found" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/categories/{categoryId}": {
+      get: {
+        tags: ["Categories"],
+        summary: "Get category by ID",
+        description:
+          "Retrieves a single category by ID scoped to the organization. Requires OWNER, ADMIN, or MEMBER role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "categoryId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Category retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeProductCategoryDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Category not found" },
+        },
+      },
+      patch: {
+        tags: ["Categories"],
+        summary: "Update category",
+        description:
+          "Updates category name or description. Enforces name uniqueness. Requires OWNER or ADMIN role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "categoryId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UpdateCategoryInput" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Category updated successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeProductCategoryDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Validation error" },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Category not found" },
+          "409": { description: "Conflict: Category name already in use" },
+        },
+      },
+      delete: {
+        tags: ["Categories"],
+        summary: "Delete category",
+        description:
+          "Safely deletes a category. Returns 409 Conflict if products are currently assigned to this category. Requires OWNER or ADMIN role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "categoryId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Category deleted successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: {
+                      type: "object",
+                      properties: {
+                        message: { type: "string" },
+                        id: { type: "string" },
+                      },
+                    },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Category not found" },
+          "409": { description: "Conflict: Products are assigned to this category" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/products": {
+      post: {
+        tags: ["Products"],
+        summary: "Create product",
+        description:
+          "Creates a new product with SKU, name, prices, low-stock threshold, and optional category. Enforces tenant SKU uniqueness and category isolation. Requires OWNER or ADMIN role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/CreateProductInput" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Product created successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeProductDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Validation error or category belongs to different tenant" },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Organization not found" },
+          "409": { description: "Conflict: SKU already exists in this organization" },
+        },
+      },
+      get: {
+        tags: ["Products"],
+        summary: "List products",
+        description:
+          "Lists products with pagination, search, category filter, status filter, price range filters, and sorting. Defaults to ACTIVE status. Requires OWNER, ADMIN, or MEMBER role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "page",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 1 },
+          },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 20 },
+          },
+          {
+            name: "search",
+            in: "query",
+            required: false,
+            schema: { type: "string" },
+          },
+          {
+            name: "categoryId",
+            in: "query",
+            required: false,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "status",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["ACTIVE", "ARCHIVED", "ALL"], default: "ACTIVE" },
+          },
+          {
+            name: "minPrice",
+            in: "query",
+            required: false,
+            schema: { type: "number" },
+          },
+          {
+            name: "maxPrice",
+            in: "query",
+            required: false,
+            schema: { type: "number" },
+          },
+          {
+            name: "sortBy",
+            in: "query",
+            required: false,
+            schema: {
+              type: "string",
+              enum: ["name", "sku", "costPrice", "sellingPrice", "createdAt", "updatedAt"],
+              default: "createdAt",
+            },
+          },
+          {
+            name: "sortOrder",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["asc", "desc"], default: "desc" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Products retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PaginatedProductsResponse" },
+              },
+            },
+          },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Organization not found" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/products/{productId}": {
+      get: {
+        tags: ["Products"],
+        summary: "Get product by ID",
+        description:
+          "Retrieves a single product by ID scoped to the organization. Requires OWNER, ADMIN, or MEMBER role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "productId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Product retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeProductDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Product not found" },
+        },
+      },
+      patch: {
+        tags: ["Products"],
+        summary: "Update product",
+        description:
+          "Partially updates product fields. Validates SKU uniqueness and category tenant membership. Requires OWNER or ADMIN role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "productId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UpdateProductInput" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Product updated successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeProductDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Validation error or category belongs to different tenant" },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Product not found" },
+          "409": { description: "Conflict: SKU already exists in this organization" },
+        },
+      },
+      delete: {
+        tags: ["Products"],
+        summary: "Archive product",
+        description:
+          "Soft-archives a product by setting status to ARCHIVED. Preserves audit history. Requires OWNER or ADMIN role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "productId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Product soft-archived successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeProductDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { description: "Unauthorized" },
+          "403": { description: "Forbidden" },
+          "404": { description: "Product not found" },
+        },
+      },
+    },
     "/health/ready": {
       get: {
         tags: ["Health Probes"],
@@ -1041,6 +1566,149 @@ export const swaggerSpec = {
               limit: { type: "integer", example: 20 },
               total: { type: "integer", example: 1 },
               totalPages: { type: "integer", example: 1 },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      CreateCategoryInput: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 100, example: "Electronics" },
+          description: {
+            type: "string",
+            maxLength: 500,
+            example: "Consumer electronic products and components",
+          },
+        },
+      },
+      UpdateCategoryInput: {
+        type: "object",
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 100, example: "Consumer Electronics" },
+          description: { type: "string", maxLength: 500, example: "Updated description" },
+        },
+      },
+      SafeProductCategoryDto: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          organizationId: { type: "string", format: "uuid" },
+          name: { type: "string", example: "Electronics" },
+          description: { type: "string", nullable: true, example: "Consumer electronics" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+          productCount: { type: "integer", example: 42 },
+        },
+      },
+      PaginatedCategoriesResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              items: {
+                type: "array",
+                items: { $ref: "#/components/schemas/SafeProductCategoryDto" },
+              },
+              pagination: {
+                type: "object",
+                properties: {
+                  page: { type: "integer", example: 1 },
+                  limit: { type: "integer", example: 20 },
+                  totalItems: { type: "integer", example: 5 },
+                  totalPages: { type: "integer", example: 1 },
+                  hasNextPage: { type: "boolean", example: false },
+                  hasPrevPage: { type: "boolean", example: false },
+                },
+              },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      CreateProductInput: {
+        type: "object",
+        required: ["sku", "name"],
+        properties: {
+          sku: { type: "string", minLength: 1, maxLength: 50, example: "ELEC-WIDGET-001" },
+          name: { type: "string", minLength: 1, maxLength: 150, example: "Smart Widget Pro" },
+          description: {
+            type: "string",
+            maxLength: 1000,
+            example: "High precision wireless sensor widget",
+          },
+          categoryId: { type: "string", format: "uuid", nullable: true },
+          unitOfMeasure: { type: "string", maxLength: 20, default: "PCS", example: "PCS" },
+          costPrice: { type: "number", minimum: 0, default: 0, example: 45.5 },
+          sellingPrice: { type: "number", minimum: 0, default: 0, example: 89.99 },
+          lowStockThreshold: { type: "integer", minimum: 0, default: 0, example: 10 },
+        },
+      },
+      UpdateProductInput: {
+        type: "object",
+        properties: {
+          sku: { type: "string", minLength: 1, maxLength: 50, example: "ELEC-WIDGET-002" },
+          name: { type: "string", minLength: 1, maxLength: 150, example: "Smart Widget Pro Max" },
+          description: { type: "string", maxLength: 1000 },
+          categoryId: { type: "string", format: "uuid", nullable: true },
+          unitOfMeasure: { type: "string", maxLength: 20, example: "BOX" },
+          costPrice: { type: "number", minimum: 0, example: 50.0 },
+          sellingPrice: { type: "number", minimum: 0, example: 99.99 },
+          lowStockThreshold: { type: "integer", minimum: 0, example: 15 },
+          status: { type: "string", enum: ["ACTIVE", "ARCHIVED"], example: "ACTIVE" },
+        },
+      },
+      SafeProductDto: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          organizationId: { type: "string", format: "uuid" },
+          categoryId: { type: "string", format: "uuid", nullable: true },
+          sku: { type: "string", example: "ELEC-WIDGET-001" },
+          name: { type: "string", example: "Smart Widget Pro" },
+          description: { type: "string", nullable: true },
+          unitOfMeasure: { type: "string", example: "PCS" },
+          costPrice: { type: "number", example: 45.5 },
+          sellingPrice: { type: "number", example: 89.99 },
+          lowStockThreshold: { type: "integer", example: 10 },
+          status: { type: "string", enum: ["ACTIVE", "ARCHIVED"], example: "ACTIVE" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+          category: {
+            type: "object",
+            nullable: true,
+            properties: {
+              id: { type: "string", format: "uuid" },
+              name: { type: "string", example: "Electronics" },
+            },
+          },
+        },
+      },
+      PaginatedProductsResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              items: {
+                type: "array",
+                items: { $ref: "#/components/schemas/SafeProductDto" },
+              },
+              pagination: {
+                type: "object",
+                properties: {
+                  page: { type: "integer", example: 1 },
+                  limit: { type: "integer", example: 20 },
+                  totalItems: { type: "integer", example: 100 },
+                  totalPages: { type: "integer", example: 5 },
+                  hasNextPage: { type: "boolean", example: true },
+                  hasPrevPage: { type: "boolean", example: false },
+                },
+              },
             },
           },
           timestamp: { type: "string", format: "date-time" },

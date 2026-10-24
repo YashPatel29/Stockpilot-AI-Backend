@@ -16,6 +16,14 @@ export const Permissions = {
 
   // Organization settings & lifecycle
   ORG_SETTINGS_MANAGE: "org:settings:manage",
+
+  // Product category management
+  CATALOG_CATEGORIES_READ: "catalog:categories:read",
+  CATALOG_CATEGORIES_WRITE: "catalog:categories:write",
+
+  // Product management
+  CATALOG_PRODUCTS_READ: "catalog:products:read",
+  CATALOG_PRODUCTS_WRITE: "catalog:products:write",
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions];
@@ -34,6 +42,10 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.ORG_INVITATIONS_READ,
     Permissions.ORG_INVITATIONS_REVOKE,
     Permissions.ORG_SETTINGS_MANAGE,
+    Permissions.CATALOG_CATEGORIES_READ,
+    Permissions.CATALOG_CATEGORIES_WRITE,
+    Permissions.CATALOG_PRODUCTS_READ,
+    Permissions.CATALOG_PRODUCTS_WRITE,
   ],
   [OrganizationRole.ADMIN]: [
     Permissions.ORG_MEMBERS_READ,
@@ -41,8 +53,16 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.ORG_INVITATIONS_CREATE,
     Permissions.ORG_INVITATIONS_READ,
     Permissions.ORG_INVITATIONS_REVOKE,
+    Permissions.CATALOG_CATEGORIES_READ,
+    Permissions.CATALOG_CATEGORIES_WRITE,
+    Permissions.CATALOG_PRODUCTS_READ,
+    Permissions.CATALOG_PRODUCTS_WRITE,
   ],
-  [OrganizationRole.MEMBER]: [Permissions.ORG_MEMBERS_READ],
+  [OrganizationRole.MEMBER]: [
+    Permissions.ORG_MEMBERS_READ,
+    Permissions.CATALOG_CATEGORIES_READ,
+    Permissions.CATALOG_PRODUCTS_READ,
+  ],
 };
 
 /**

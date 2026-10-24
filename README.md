@@ -143,6 +143,7 @@ For in-depth architectural decisions, guides, and runbooks:
 - [Authentication API Guide](./docs/API_AUTH.md) — Authentication endpoints, JWT rotation, HttpOnly cookies, and security model.
 - [Organizations & Multi-Tenancy API Guide](./docs/API_ORGANIZATIONS.md) — Organization lifecycle, member isolation, slug generation, and tenancy guard middleware.
 - [Team Members & RBAC API Guide](./docs/API_MEMBERS_INVITATIONS.md) — Role-based access control, team member management, and secure cryptographic invitations.
+- [Product & Category Management Guide](./docs/API_PRODUCTS_CATEGORIES.md) — Multi-tenant product categories, SKU tracking, exact monetary precision, safe deletion, and soft-archiving.
 - [API & Health Probes](./docs/API_HEALTH.md) — Liveness vs. readiness probes, response schemas, and orchestrator configs.
 - [Deployment Guide](./docs/DEPLOYMENT.md) — Production checklist, Docker multi-stage build, and graceful shutdown.
 

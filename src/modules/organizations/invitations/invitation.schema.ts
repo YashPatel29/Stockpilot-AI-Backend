@@ -66,11 +66,7 @@ export const acceptInvitationSchema = z
       .min(1, "Invitation token cannot be empty.")
       .max(256, "Invitation token format is invalid.")
       .optional(),
-    invitationId: z
-      .string()
-      .trim()
-      .min(1, "Invitation ID cannot be empty.")
-      .optional(),
+    invitationId: z.string().trim().min(1, "Invitation ID cannot be empty.").optional(),
   })
   .refine((data) => Boolean(data.token || data.invitationId), {
     message: "Either invitation token or invitationId must be provided.",
@@ -89,11 +85,7 @@ export const rejectInvitationSchema = z
       .min(1, "Invitation token cannot be empty.")
       .max(256, "Invitation token format is invalid.")
       .optional(),
-    invitationId: z
-      .string()
-      .trim()
-      .min(1, "Invitation ID cannot be empty.")
-      .optional(),
+    invitationId: z.string().trim().min(1, "Invitation ID cannot be empty.").optional(),
   })
   .refine((data) => Boolean(data.token || data.invitationId), {
     message: "Either invitation token or invitationId must be provided.",
