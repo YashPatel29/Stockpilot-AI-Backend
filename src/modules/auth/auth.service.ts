@@ -14,6 +14,8 @@ import {
 } from "../../common/utils/token.util";
 import type { RegisterInput, LoginInput } from "./auth.schema";
 import { toSafeUser, type AuthSessionResult, type SafeUserDto } from "./auth.types";
+import { AuditService } from "../audit/audit.service";
+import { AuditAction, AuditResourceType } from "../audit/audit.types";
 
 /**
  * Service encapsulating core user authentication, credential verification,
@@ -21,7 +23,14 @@ import { toSafeUser, type AuthSessionResult, type SafeUserDto } from "./auth.typ
  * Invariant: Never imports Express types (Request, Response).
  */
 export class AuthService {
-  constructor(private readonly db: PrismaClient = prisma) {}
+  private readonly audit: AuditService;
+
+  constructor(
+    private readonly db: PrismaClient = prisma,
+    audit?: AuditService,
+  ) {
+    this.audit = audit ?? new AuditService(this.db);
+  }
 
   /**
    * Registers a new user account, hashes credentials, and issues an initial authenticated session.
@@ -50,6 +59,14 @@ export class AuthService {
     });
 
     logger.info({ userId: user.id }, "New user registered successfully.");
+
+    await this.audit.recordAudit({
+      actorUserId: user.id,
+      action: AuditAction.AUTH_REGISTERED,
+      resourceType: AuditResourceType.USER,
+      resourceId: user.id,
+      metadata: { email: user.email },
+    });
 
     return this.createSession(user.id, user.email, user.name, user);
   }
@@ -84,6 +101,14 @@ export class AuthService {
     }
 
     logger.info({ userId: user.id }, "User logged in successfully.");
+
+    await this.audit.recordAudit({
+      actorUserId: user.id,
+      action: AuditAction.AUTH_LOGIN,
+      resourceType: AuditResourceType.USER,
+      resourceId: user.id,
+      metadata: { email: user.email },
+    });
 
     return this.createSession(user.id, user.email, user.name, user);
   }

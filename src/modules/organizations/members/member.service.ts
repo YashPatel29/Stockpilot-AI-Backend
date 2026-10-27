@@ -1,8 +1,11 @@
-import { PrismaClient, OrganizationRole } from "@prisma/client";
+import { PrismaClient, OrganizationRole, NotificationType } from "@prisma/client";
 import { prisma } from "../../../infrastructure/database/prisma.client";
 import { logger } from "../../../infrastructure/logging/logger";
 import { NotFoundError } from "../../../common/errors/http-errors";
 import { PermissionPolicy } from "../rbac/permission.policy";
+import { AuditService } from "../../audit/audit.service";
+import { AuditAction, AuditResourceType } from "../../audit/audit.types";
+import { NotificationService } from "../../notifications/notification.service";
 import type { ListMembersQuery } from "./member.schema";
 import type { OrganizationMemberDto, PaginatedMembersResult } from "./member.types";
 
@@ -11,7 +14,17 @@ import type { OrganizationMemberDto, PaginatedMembersResult } from "./member.typ
  * Invariant: Never imports Express types (Request, Response).
  */
 export class MemberService {
-  constructor(private readonly db: PrismaClient = prisma) {}
+  private readonly audit: AuditService;
+  private readonly notifications: NotificationService;
+
+  constructor(
+    private readonly db: PrismaClient = prisma,
+    audit?: AuditService,
+    notifications?: NotificationService,
+  ) {
+    this.audit = audit ?? new AuditService(this.db);
+    this.notifications = notifications ?? new NotificationService(this.db);
+  }
 
   /**
    * Lists all members of the specified organization with pagination and user profile data.
@@ -142,6 +155,32 @@ export class MemberService {
       "Member role updated successfully",
     );
 
+    await this.audit.recordAudit({
+      organizationId,
+      actorUserId,
+      action: AuditAction.MEMBERSHIP_ROLE_UPDATED,
+      resourceType: AuditResourceType.ORGANIZATION_MEMBERSHIP,
+      resourceId: updated.id,
+      metadata: {
+        targetUserId: updated.userId,
+        previousRole: targetMembership.role,
+        newRole: updated.role,
+      },
+    });
+
+    await this.notifications.createNotification({
+      organizationId,
+      recipientUserId: updated.userId,
+      type: NotificationType.ROLE_UPDATED,
+      title: "Role Updated",
+      message: `Your role in the organization has been updated to ${updated.role}.`,
+      data: {
+        organizationId,
+        previousRole: targetMembership.role,
+        newRole: updated.role,
+      },
+    });
+
     return {
       id: updated.id,
       userId: updated.userId,
@@ -207,6 +246,18 @@ export class MemberService {
       },
       "Member removed from organization",
     );
+
+    await this.audit.recordAudit({
+      organizationId,
+      actorUserId,
+      action: AuditAction.MEMBERSHIP_REMOVED,
+      resourceType: AuditResourceType.ORGANIZATION_MEMBERSHIP,
+      resourceId: membershipId,
+      metadata: {
+        removedUserId: targetMembership.userId,
+        removedRole: targetMembership.role,
+      },
+    });
   }
 }
 

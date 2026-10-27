@@ -2,6 +2,8 @@ import { Prisma, ProductStatus, type PrismaClient } from "@prisma/client";
 import { prisma } from "../../../infrastructure/database/prisma.client";
 import { NotFoundError, ConflictError, BadRequestError } from "../../../common/errors/http-errors";
 import { logger } from "../../../infrastructure/logging/logger";
+import { AuditService } from "../../audit/audit.service";
+import { AuditAction, AuditResourceType } from "../../audit/audit.types";
 import type { CreateProductInput, UpdateProductInput, ListProductsQuery } from "./product.schema";
 import { toSafeProduct, type SafeProductDto, type PaginatedProductsResult } from "./product.types";
 
@@ -10,7 +12,14 @@ import { toSafeProduct, type SafeProductDto, type PaginatedProductsResult } from
  * exact decimal monetary tracking, and safe soft-archival.
  */
 export class ProductService {
-  constructor(private readonly db: PrismaClient = prisma) {}
+  private readonly audit: AuditService;
+
+  constructor(
+    private readonly db: PrismaClient = prisma,
+    audit?: AuditService,
+  ) {
+    this.audit = audit ?? new AuditService(this.db);
+  }
 
   /**
    * Creates a new product in the organization tenant.
@@ -75,6 +84,15 @@ export class ProductService {
       { organizationId, productId: product.id, sku: normalizedSku },
       "Product created successfully",
     );
+
+    await this.audit.recordAudit({
+      organizationId,
+      action: AuditAction.PRODUCT_CREATED,
+      resourceType: AuditResourceType.PRODUCT,
+      resourceId: product.id,
+      metadata: { sku: normalizedSku, name: product.name },
+    });
+
     return toSafeProduct(product);
   }
 
@@ -244,6 +262,20 @@ export class ProductService {
     });
 
     logger.info({ organizationId, productId }, "Product updated successfully");
+
+    const action =
+      input.status === ProductStatus.ACTIVE && existing.status === ProductStatus.ARCHIVED
+        ? AuditAction.PRODUCT_REACTIVATED
+        : AuditAction.PRODUCT_UPDATED;
+
+    await this.audit.recordAudit({
+      organizationId,
+      action,
+      resourceType: AuditResourceType.PRODUCT,
+      resourceId: updated.id,
+      metadata: { sku: updated.sku, name: updated.name, status: updated.status },
+    });
+
     return toSafeProduct(updated);
   }
 
@@ -276,6 +308,15 @@ export class ProductService {
     });
 
     logger.info({ organizationId, productId }, "Product archived successfully");
+
+    await this.audit.recordAudit({
+      organizationId,
+      action: AuditAction.PRODUCT_ARCHIVED,
+      resourceType: AuditResourceType.PRODUCT,
+      resourceId: archived.id,
+      metadata: { sku: archived.sku, name: archived.name },
+    });
+
     return toSafeProduct(archived);
   }
 }

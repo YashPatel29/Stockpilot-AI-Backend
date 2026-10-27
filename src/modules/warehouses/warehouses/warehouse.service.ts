@@ -2,6 +2,8 @@ import { type PrismaClient, type Prisma } from "@prisma/client";
 import { prisma } from "../../../infrastructure/database/prisma.client";
 import { NotFoundError, ConflictError } from "../../../common/errors/http-errors";
 import { logger } from "../../../infrastructure/logging/logger";
+import { AuditService } from "../../audit/audit.service";
+import { AuditAction, AuditResourceType } from "../../audit/audit.types";
 import type {
   CreateWarehouseInput,
   UpdateWarehouseInput,
@@ -20,7 +22,14 @@ import { LocationStatus } from "../locations/location.types";
  * code uniqueness per organization, and atomic cascade deactivation.
  */
 export class WarehouseService {
-  constructor(private readonly db: PrismaClient = prisma) {}
+  private readonly audit: AuditService;
+
+  constructor(
+    private readonly db: PrismaClient = prisma,
+    audit?: AuditService,
+  ) {
+    this.audit = audit ?? new AuditService(this.db);
+  }
 
   /**
    * Creates a new warehouse facility in the organization.
@@ -70,6 +79,15 @@ export class WarehouseService {
       { organizationId, warehouseId: warehouse.id, code: normalizedCode },
       "Warehouse created successfully",
     );
+
+    await this.audit.recordAudit({
+      organizationId,
+      action: AuditAction.WAREHOUSE_CREATED,
+      resourceType: AuditResourceType.WAREHOUSE,
+      resourceId: warehouse.id,
+      metadata: { code: normalizedCode, name: warehouse.name },
+    });
+
     return toSafeWarehouse(warehouse);
   }
 
@@ -245,6 +263,15 @@ export class WarehouseService {
       ]);
 
       logger.info({ organizationId, warehouseId }, "Warehouse and child locations deactivated");
+
+      await this.audit.recordAudit({
+        organizationId,
+        action: AuditAction.WAREHOUSE_DEACTIVATED,
+        resourceType: AuditResourceType.WAREHOUSE,
+        resourceId: updated.id,
+        metadata: { code: updated.code, name: updated.name, status: updated.status },
+      });
+
       return toSafeWarehouse(updated);
     }
 
@@ -259,6 +286,15 @@ export class WarehouseService {
     });
 
     logger.info({ organizationId, warehouseId }, "Warehouse updated successfully");
+
+    await this.audit.recordAudit({
+      organizationId,
+      action: AuditAction.WAREHOUSE_UPDATED,
+      resourceType: AuditResourceType.WAREHOUSE,
+      resourceId: updated.id,
+      metadata: { code: updated.code, name: updated.name, status: updated.status },
+    });
+
     return toSafeWarehouse(updated);
   }
 
@@ -308,6 +344,15 @@ export class WarehouseService {
       { organizationId, warehouseId },
       "Warehouse safely deactivated with cascading location deactivation",
     );
+
+    await this.audit.recordAudit({
+      organizationId,
+      action: AuditAction.WAREHOUSE_DEACTIVATED,
+      resourceType: AuditResourceType.WAREHOUSE,
+      resourceId: deactivated.id,
+      metadata: { code: deactivated.code, name: deactivated.name, status: deactivated.status },
+    });
+
     return toSafeWarehouse(deactivated);
   }
 }

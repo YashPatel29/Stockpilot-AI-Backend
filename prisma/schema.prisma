@@ -35,6 +35,8 @@ model Organization {
   suppliers             Supplier[]
   purchaseOrders        PurchaseOrder[]
   purchaseOrderReceipts PurchaseOrderReceipt[]
+  notifications         Notification[]
+  auditLogs             AuditLog[]
 
   @@index([slug])
   @@map("organizations")
@@ -56,6 +58,8 @@ model User {
   createdPurchaseOrders  PurchaseOrder[]          @relation("CreatedPurchaseOrders")
   approvedPurchaseOrders PurchaseOrder[]          @relation("ApprovedPurchaseOrders")
   purchaseOrderReceipts  PurchaseOrderReceipt[]   @relation("ReceivedPurchaseOrders")
+  notifications          Notification[]
+  auditLogs              AuditLog[]
 
   @@index([email])
   @@map("users")
@@ -437,4 +441,65 @@ model PurchaseOrderReceipt {
   @@index([receivedByUserId])
   @@map("purchase_order_receipts")
 }
+
+/// Notification type enum distinguishing business and security event categories.
+enum NotificationType {
+  INFO
+  WARNING
+  PURCHASE_ORDER_SUBMITTED
+  PURCHASE_ORDER_APPROVED
+  PURCHASE_ORDER_RECEIVED
+  PURCHASE_ORDER_CANCELLED
+  LOW_STOCK_ALERT
+  INVITATION_RECEIVED
+  ROLE_UPDATED
+  SECURITY_EVENT
+}
+
+/// User-scoped notification record for tracking business and system events.
+model Notification {
+  id              String           @id @default(uuid())
+  organizationId  String?          @map("organization_id")
+  recipientUserId String           @map("recipient_user_id")
+  type            NotificationType @default(INFO)
+  title           String
+  message         String
+  data            Json?
+  readAt          DateTime?        @map("read_at")
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  organization  Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  recipientUser User          @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@index([recipientUserId, readAt])
+  @@index([recipientUserId, createdAt])
+  @@index([organizationId, createdAt])
+  @@map("notifications")
+}
+
+/// Append-only audit record capturing business mutations and security-relevant events.
+model AuditLog {
+  id             String        @id @default(uuid())
+  organizationId String?       @map("organization_id")
+  actorUserId    String?       @map("actor_user_id")
+  action         String
+  resourceType   String        @map("resource_type")
+  resourceId     String?       @map("resource_id")
+  metadata       Json?
+  requestId      String?       @map("request_id")
+  ipAddress      String?       @map("ip_address")
+  userAgent      String?       @map("user_agent")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  actorUser    User?         @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, action])
+  @@index([organizationId, resourceType])
+  @@index([actorUserId])
+  @@index([resourceType, resourceId])
+  @@map("audit_logs")
+}
+
 

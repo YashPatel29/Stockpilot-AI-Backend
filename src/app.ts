@@ -15,6 +15,7 @@ import { healthRouter } from "./modules/health/health.routes";
 import { authRouter } from "./modules/auth/auth.routes";
 import { organizationRouter } from "./modules/organizations/organization.routes";
 import { acceptInvitationRouter } from "./modules/organizations/invitations/invitation.routes";
+import { notificationRouter } from "./modules/notifications/notification.routes";
 
 /**
  * Creates and configures the Express application pipeline.
@@ -86,6 +87,7 @@ export function createApp(): Application {
   apiRouter.use("/auth", authRouter);
   apiRouter.use("/organizations", organizationRouter);
   apiRouter.use("/invitations", acceptInvitationRouter);
+  apiRouter.use("/notifications", notificationRouter);
 
   // Register versioned router
   app.use(appConfig.api.fullPrefix, apiRouter);

@@ -48,6 +48,9 @@ export const Permissions = {
 
   // Reporting & dashboard management
   REPORTS_READ: "reports:read",
+
+  // Audit logs management
+  AUDIT_LOGS_READ: "audit_logs:read",
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions];
@@ -82,6 +85,7 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.PURCHASE_ORDERS_READ,
     Permissions.PURCHASE_ORDERS_WRITE,
     Permissions.REPORTS_READ,
+    Permissions.AUDIT_LOGS_READ,
   ],
   [OrganizationRole.ADMIN]: [
     Permissions.ORG_MEMBERS_READ,
@@ -105,6 +109,7 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.PURCHASE_ORDERS_READ,
     Permissions.PURCHASE_ORDERS_WRITE,
     Permissions.REPORTS_READ,
+    Permissions.AUDIT_LOGS_READ,
   ],
   [OrganizationRole.MEMBER]: [
     Permissions.ORG_MEMBERS_READ,

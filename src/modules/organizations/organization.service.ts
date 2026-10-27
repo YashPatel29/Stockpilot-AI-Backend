@@ -15,6 +15,8 @@ import {
   type PaginatedOrganizationsResult,
   type SafeOrganizationDto,
 } from "./organization.types";
+import { AuditService } from "../audit/audit.service";
+import { AuditAction, AuditResourceType } from "../audit/audit.types";
 
 /**
  * Service encapsulating multi-tenant organization lifecycle,
@@ -22,7 +24,14 @@ import {
  * Invariant: Never imports Express types (Request, Response).
  */
 export class OrganizationService {
-  constructor(private readonly db: PrismaClient = prisma) {}
+  private readonly audit: AuditService;
+
+  constructor(
+    private readonly db: PrismaClient = prisma,
+    audit?: AuditService,
+  ) {
+    this.audit = audit ?? new AuditService(this.db);
+  }
 
   /**
    * Creates an organization and its initial OWNER membership in an atomic transaction.
@@ -49,6 +58,15 @@ export class OrganizationService {
           organizationId: org.id,
           role: OrganizationRole.OWNER,
         },
+      });
+
+      await this.audit.recordAuditInTx(tx, {
+        organizationId: org.id,
+        actorUserId: userId,
+        action: AuditAction.ORG_CREATED,
+        resourceType: AuditResourceType.ORGANIZATION,
+        resourceId: org.id,
+        metadata: { name: org.name, slug: org.slug },
       });
 
       return { org, role: membership.role };
@@ -183,6 +201,15 @@ export class OrganizationService {
 
     logger.info({ organizationId, userId }, "Organization updated successfully");
 
+    await this.audit.recordAudit({
+      organizationId,
+      actorUserId: userId,
+      action: AuditAction.ORG_UPDATED,
+      resourceType: AuditResourceType.ORGANIZATION,
+      resourceId: updated.id,
+      metadata: { name: updated.name, slug: updated.slug },
+    });
+
     return toSafeOrganization(updated);
   }
 
@@ -215,6 +242,14 @@ export class OrganizationService {
     });
 
     logger.info({ organizationId, userId }, "Organization deactivated successfully");
+
+    await this.audit.recordAudit({
+      organizationId,
+      actorUserId: userId,
+      action: AuditAction.ORG_DEACTIVATED,
+      resourceType: AuditResourceType.ORGANIZATION,
+      resourceId: organizationId,
+    });
   }
 
   /**

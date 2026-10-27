@@ -91,6 +91,15 @@ export const swaggerSpec = {
       description:
         "Warehouse distribution, ledger movements, product summaries, low-stock, and procurement analytics",
     },
+    {
+      name: "Notifications",
+      description: "User-scoped notification center, unread counters, and mark-as-read mutations",
+    },
+    {
+      name: "Audit Logs",
+      description:
+        "Append-only audit trail and activity log querying for organization administrators",
+    },
   ],
   paths: {
     "/api/v1/auth/register": {
@@ -3074,6 +3083,152 @@ export const swaggerSpec = {
         },
       },
     },
+    "/api/v1/notifications": {
+      get: {
+        tags: ["Notifications"],
+        summary: "List notifications for authenticated user",
+        description:
+          "Returns paginated notifications with optional unreadOnly, type, and organization filters.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+          { name: "unreadOnly", in: "query", schema: { type: "boolean" } },
+          { name: "type", in: "query", schema: { type: "string" } },
+          { name: "organizationId", in: "query", schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "Notifications retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PaginatedNotificationsResponse" },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/UnauthorizedError" },
+        },
+      },
+    },
+    "/api/v1/notifications/unread-count": {
+      get: {
+        tags: ["Notifications"],
+        summary: "Get unread notifications count",
+        description:
+          "Returns total unread notifications for current user, optionally scoped to an organization.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "organizationId", in: "query", schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "Unread count retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/UnreadCountResponse" },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/UnauthorizedError" },
+        },
+      },
+    },
+    "/api/v1/notifications/{notificationId}/read": {
+      patch: {
+        tags: ["Notifications"],
+        summary: "Mark notification as read",
+        description:
+          "Idempotently marks a single notification belonging to the authenticated user as read.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "notificationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Notification marked as read successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeNotificationDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/UnauthorizedError" },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+    },
+    "/api/v1/notifications/read-all": {
+      patch: {
+        tags: ["Notifications"],
+        summary: "Mark all notifications as read",
+        description: "Bulk marks all unread notifications belonging to the user as read.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "organizationId", in: "query", schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "Notifications bulk marked as read successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/BulkReadResponse" },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/UnauthorizedError" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/audit-logs": {
+      get: {
+        tags: ["Audit Logs"],
+        summary: "List organization audit logs",
+        description:
+          "Query immutable append-only organization audit logs. Requires OWNER or ADMIN role.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+          { name: "action", in: "query", schema: { type: "string" } },
+          { name: "resourceType", in: "query", schema: { type: "string" } },
+          { name: "resourceId", in: "query", schema: { type: "string" } },
+          { name: "actorUserId", in: "query", schema: { type: "string", format: "uuid" } },
+          { name: "startDate", in: "query", schema: { type: "string", format: "date-time" } },
+          { name: "endDate", in: "query", schema: { type: "string", format: "date-time" } },
+        ],
+        responses: {
+          "200": {
+            description: "Audit logs retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PaginatedAuditLogsResponse" },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/UnauthorizedError" },
+          "403": { $ref: "#/components/responses/ForbiddenError" },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+    },
   },
   components: {
     securitySchemes: {
@@ -4226,6 +4381,121 @@ export const swaggerSpec = {
                   totalPages: { type: "integer", example: 1 },
                   hasNextPage: { type: "boolean", example: false },
                   hasPrevPage: { type: "boolean", example: false },
+                },
+              },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      SafeNotificationDto: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          organizationId: { type: "string", format: "uuid", nullable: true },
+          recipientUserId: { type: "string", format: "uuid" },
+          type: { type: "string", example: "INFO" },
+          title: { type: "string", example: "Low Stock Alert" },
+          message: { type: "string", example: "Product steel bolt is low on stock." },
+          data: { type: "object", nullable: true },
+          readAt: { type: "string", format: "date-time", nullable: true },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      PaginatedNotificationsResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              notifications: {
+                type: "array",
+                items: { $ref: "#/components/schemas/SafeNotificationDto" },
+              },
+              pagination: {
+                type: "object",
+                properties: {
+                  page: { type: "integer", example: 1 },
+                  limit: { type: "integer", example: 20 },
+                  total: { type: "integer", example: 1 },
+                  totalPages: { type: "integer", example: 1 },
+                },
+              },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      UnreadCountResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              count: { type: "integer", example: 3 },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      BulkReadResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              updatedCount: { type: "integer", example: 5 },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      SafeAuditLogDto: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          organizationId: { type: "string", format: "uuid", nullable: true },
+          actorUserId: { type: "string", format: "uuid", nullable: true },
+          actor: {
+            type: "object",
+            nullable: true,
+            properties: {
+              id: { type: "string", format: "uuid" },
+              name: { type: "string" },
+              email: { type: "string" },
+            },
+          },
+          action: { type: "string", example: "inventory.received" },
+          resourceType: { type: "string", example: "InventoryTransaction" },
+          resourceId: { type: "string", nullable: true },
+          metadata: { type: "object", nullable: true },
+          requestId: { type: "string", nullable: true },
+          ipAddress: { type: "string", nullable: true },
+          userAgent: { type: "string", nullable: true },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      PaginatedAuditLogsResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              auditLogs: {
+                type: "array",
+                items: { $ref: "#/components/schemas/SafeAuditLogDto" },
+              },
+              pagination: {
+                type: "object",
+                properties: {
+                  page: { type: "integer", example: 1 },
+                  limit: { type: "integer", example: 20 },
+                  total: { type: "integer", example: 10 },
+                  totalPages: { type: "integer", example: 1 },
                 },
               },
             },

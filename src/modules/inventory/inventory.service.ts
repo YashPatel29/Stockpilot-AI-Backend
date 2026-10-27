@@ -1,8 +1,11 @@
 import { createHash } from "node:crypto";
-import { Prisma, type PrismaClient } from "@prisma/client";
+import { NotificationType, Prisma, type PrismaClient } from "@prisma/client";
 import { prisma } from "../../infrastructure/database/prisma.client";
 import { NotFoundError, ConflictError, BadRequestError } from "../../common/errors/http-errors";
 import { logger } from "../../infrastructure/logging/logger";
+import { AuditService } from "../audit/audit.service";
+import { AuditAction, AuditResourceType } from "../audit/audit.types";
+import { NotificationService } from "../notifications/notification.service";
 import {
   InventoryTransactionType,
   toSafeBalance,
@@ -26,7 +29,17 @@ import type {
  * and multi-tenant stock receipts, issues, adjustments, and transfers.
  */
 export class InventoryService {
-  constructor(private readonly db: PrismaClient = prisma) {}
+  private readonly audit: AuditService;
+  private readonly notifications: NotificationService;
+
+  constructor(
+    private readonly db: PrismaClient = prisma,
+    audit?: AuditService,
+    notifications?: NotificationService,
+  ) {
+    this.audit = audit ?? new AuditService(this.db);
+    this.notifications = notifications ?? new NotificationService(this.db);
+  }
 
   /**
    * Generates a deterministic SHA-256 hash of a normalized mutation payload to detect
@@ -310,6 +323,21 @@ export class InventoryService {
       },
     });
 
+    await this.audit.recordAuditInTx(tx, {
+      organizationId: params.organizationId,
+      actorUserId: params.userId,
+      action: AuditAction.INVENTORY_RECEIVED,
+      resourceType: AuditResourceType.INVENTORY_TRANSACTION,
+      resourceId: transaction.id,
+      metadata: {
+        productId: params.productId,
+        warehouseId: params.warehouseId,
+        destinationLocationId: params.locationId,
+        quantity: params.quantity.toString(),
+        reference: params.reference?.trim() || null,
+      },
+    });
+
     return { balance, transaction };
   }
 
@@ -492,6 +520,45 @@ export class InventoryService {
           },
           "Stock issued successfully",
         );
+
+        await this.audit.recordAuditInTx(tx, {
+          organizationId,
+          actorUserId: userId,
+          action: AuditAction.INVENTORY_ISSUED,
+          resourceType: AuditResourceType.INVENTORY_TRANSACTION,
+          resourceId: transaction.id,
+          metadata: {
+            productId: input.productId,
+            warehouseId: location.warehouseId,
+            sourceLocationId: input.locationId,
+            quantity: qtyDecimal.toString(),
+            reason: input.reason?.trim() || null,
+            reference: input.reference?.trim() || null,
+          },
+        });
+
+        if (
+          product.lowStockThreshold !== null &&
+          new Prisma.Decimal(updatedBalance.quantityOnHand).lte(
+            new Prisma.Decimal(product.lowStockThreshold),
+          )
+        ) {
+          await this.notifications.notifyOrganizationAdmins(
+            organizationId,
+            {
+              type: NotificationType.LOW_STOCK_ALERT,
+              title: "Low Stock Alert",
+              message: `Product "${product.name}" (${product.sku}) has reached low stock: ${updatedBalance.quantityOnHand.toString()} units remaining.`,
+              data: {
+                productId: product.id,
+                sku: product.sku,
+                currentBalance: updatedBalance.quantityOnHand.toString(),
+                threshold: product.lowStockThreshold,
+              },
+            },
+            tx,
+          );
+        }
 
         return {
           transaction: toSafeTransaction(transaction),
@@ -715,6 +782,45 @@ export class InventoryService {
           },
           "Stock adjusted successfully",
         );
+
+        await this.audit.recordAuditInTx(tx, {
+          organizationId,
+          actorUserId: userId,
+          action: AuditAction.INVENTORY_ADJUSTED,
+          resourceType: AuditResourceType.INVENTORY_TRANSACTION,
+          resourceId: transaction.id,
+          metadata: {
+            productId: input.productId,
+            warehouseId: location.warehouseId,
+            locationId: input.locationId,
+            delta: deltaDecimal.toString(),
+            reason: input.reason.trim(),
+            reference: input.reference?.trim() || null,
+          },
+        });
+
+        if (
+          product.lowStockThreshold !== null &&
+          new Prisma.Decimal(updatedBalance.quantityOnHand).lte(
+            new Prisma.Decimal(product.lowStockThreshold),
+          )
+        ) {
+          await this.notifications.notifyOrganizationAdmins(
+            organizationId,
+            {
+              type: NotificationType.LOW_STOCK_ALERT,
+              title: "Low Stock Alert",
+              message: `Product "${product.name}" (${product.sku}) has reached low stock: ${updatedBalance.quantityOnHand} units remaining.`,
+              data: {
+                productId: product.id,
+                sku: product.sku,
+                currentBalance: updatedBalance.quantityOnHand,
+                threshold: product.lowStockThreshold,
+              },
+            },
+            tx,
+          );
+        }
 
         return {
           transaction: toSafeTransaction(transaction),
@@ -959,6 +1065,45 @@ export class InventoryService {
           },
           "Stock transferred successfully",
         );
+
+        await this.audit.recordAuditInTx(tx, {
+          organizationId,
+          actorUserId: userId,
+          action: AuditAction.INVENTORY_TRANSFERRED,
+          resourceType: AuditResourceType.INVENTORY_TRANSACTION,
+          resourceId: transaction.id,
+          metadata: {
+            productId: input.productId,
+            sourceWarehouseId: sourceLocation.warehouseId,
+            sourceLocationId: input.sourceLocationId,
+            destinationLocationId: input.destinationLocationId,
+            quantity: qtyDecimal.toString(),
+            reference: input.reference?.trim() || null,
+          },
+        });
+
+        if (
+          product.lowStockThreshold !== null &&
+          new Prisma.Decimal(updatedSourceBalance.quantityOnHand).lte(
+            new Prisma.Decimal(product.lowStockThreshold),
+          )
+        ) {
+          await this.notifications.notifyOrganizationAdmins(
+            organizationId,
+            {
+              type: NotificationType.LOW_STOCK_ALERT,
+              title: "Low Stock Alert",
+              message: `Product "${product.name}" (${product.sku}) has reached low stock: ${updatedSourceBalance.quantityOnHand.toString()} units remaining.`,
+              data: {
+                productId: product.id,
+                sku: product.sku,
+                currentBalance: updatedSourceBalance.quantityOnHand.toString(),
+                threshold: product.lowStockThreshold,
+              },
+            },
+            tx,
+          );
+        }
 
         return {
           transaction: toSafeTransaction(transaction),

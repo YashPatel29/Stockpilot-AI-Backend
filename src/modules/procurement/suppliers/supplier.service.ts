@@ -2,6 +2,8 @@ import { Prisma, type PrismaClient } from "@prisma/client";
 import { prisma } from "../../../infrastructure/database/prisma.client";
 import { NotFoundError, ConflictError } from "../../../common/errors/http-errors";
 import { logger } from "../../../infrastructure/logging/logger";
+import { AuditService } from "../../audit/audit.service";
+import { AuditAction, AuditResourceType } from "../../audit/audit.types";
 import {
   toSafeSupplier,
   type SafeSupplierDto,
@@ -17,7 +19,14 @@ import type {
  * Service orchestrating multi-tenant supplier management and catalog vendor operations.
  */
 export class SupplierService {
-  constructor(private readonly db: PrismaClient = prisma) {}
+  private readonly audit: AuditService;
+
+  constructor(
+    private readonly db: PrismaClient = prisma,
+    audit?: AuditService,
+  ) {
+    this.audit = audit ?? new AuditService(this.db);
+  }
 
   /**
    * Creates a new supplier within an organization with normalized code uniqueness.
@@ -64,6 +73,14 @@ export class SupplierService {
       { organizationId, supplierId: supplier.id, code: supplier.code },
       "Supplier created successfully",
     );
+
+    await this.audit.recordAudit({
+      organizationId,
+      action: AuditAction.SUPPLIER_CREATED,
+      resourceType: AuditResourceType.SUPPLIER,
+      resourceId: supplier.id,
+      metadata: { code: supplier.code, name: supplier.name },
+    });
 
     return toSafeSupplier(supplier);
   }
@@ -209,6 +226,17 @@ export class SupplierService {
       "Supplier updated successfully",
     );
 
+    const action =
+      input.isActive === false ? AuditAction.SUPPLIER_DEACTIVATED : AuditAction.SUPPLIER_UPDATED;
+
+    await this.audit.recordAudit({
+      organizationId,
+      action,
+      resourceType: AuditResourceType.SUPPLIER,
+      resourceId: updated.id,
+      metadata: { code: updated.code, name: updated.name, isActive: updated.isActive },
+    });
+
     return toSafeSupplier(updated);
   }
 
@@ -236,6 +264,14 @@ export class SupplierService {
     });
 
     logger.info({ organizationId, supplierId: updated.id }, "Supplier deactivated successfully");
+
+    await this.audit.recordAudit({
+      organizationId,
+      action: AuditAction.SUPPLIER_DEACTIVATED,
+      resourceType: AuditResourceType.SUPPLIER,
+      resourceId: updated.id,
+      metadata: { code: updated.code, name: updated.name, isActive: false },
+    });
 
     return toSafeSupplier(updated);
   }

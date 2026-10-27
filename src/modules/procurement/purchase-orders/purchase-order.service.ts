@@ -1,9 +1,12 @@
 import { randomBytes, createHash } from "node:crypto";
-import { Prisma, type PrismaClient } from "@prisma/client";
+import { NotificationType, Prisma, type PrismaClient } from "@prisma/client";
 import { prisma } from "../../../infrastructure/database/prisma.client";
 import { NotFoundError, ConflictError, BadRequestError } from "../../../common/errors/http-errors";
 import { logger } from "../../../infrastructure/logging/logger";
 import { InventoryService, inventoryService } from "../../inventory/inventory.service";
+import { AuditService } from "../../audit/audit.service";
+import { AuditAction, AuditResourceType } from "../../audit/audit.types";
+import { NotificationService } from "../../notifications/notification.service";
 import {
   PurchaseOrderStatus,
   toSafePurchaseOrder,
@@ -22,10 +25,18 @@ import type {
  * Service managing purchase order lifecycle, approvals, deliveries, and stock ledger synchronization.
  */
 export class PurchaseOrderService {
+  private readonly audit: AuditService;
+  private readonly notifications: NotificationService;
+
   constructor(
     private readonly db: PrismaClient = prisma,
     private readonly stockService: InventoryService = inventoryService,
-  ) {}
+    audit?: AuditService,
+    notifications?: NotificationService,
+  ) {
+    this.audit = audit ?? new AuditService(this.db);
+    this.notifications = notifications ?? new NotificationService(this.db);
+  }
 
   /**
    * Generates a collision-resistant purchase order number: PO-YYYYMMDD-XXXX
@@ -156,6 +167,19 @@ export class PurchaseOrderService {
           { organizationId, purchaseOrderId: created.id, orderNumber: created.orderNumber },
           "Purchase order draft created successfully",
         );
+
+        await this.audit.recordAudit({
+          organizationId,
+          actorUserId: userId,
+          action: AuditAction.PURCHASE_ORDER_CREATED,
+          resourceType: AuditResourceType.PURCHASE_ORDER,
+          resourceId: created.id,
+          metadata: {
+            orderNumber: created.orderNumber,
+            totalAmount: totalAmount.toString(),
+            supplierId: input.supplierId,
+          },
+        });
 
         return toSafePurchaseOrder(created as PurchaseOrderWithDetails);
       } catch (error) {
@@ -455,6 +479,29 @@ export class PurchaseOrderService {
       "Purchase order submitted for approval",
     );
 
+    await this.audit.recordAudit({
+      organizationId,
+      actorUserId: updated.createdByUserId,
+      action: AuditAction.PURCHASE_ORDER_SUBMITTED,
+      resourceType: AuditResourceType.PURCHASE_ORDER,
+      resourceId: updated.id,
+      metadata: {
+        orderNumber: updated.orderNumber,
+        totalAmount: updated.totalAmount.toString(),
+      },
+    });
+
+    await this.notifications.notifyOrganizationAdmins(organizationId, {
+      type: NotificationType.PURCHASE_ORDER_SUBMITTED,
+      title: "Purchase Order Submitted",
+      message: `Purchase order ${updated.orderNumber} has been submitted for approval.`,
+      data: {
+        purchaseOrderId: updated.id,
+        orderNumber: updated.orderNumber,
+        totalAmount: updated.totalAmount.toString(),
+      },
+    });
+
     return toSafePurchaseOrder(updated as PurchaseOrderWithDetails);
   }
 
@@ -504,6 +551,30 @@ export class PurchaseOrderService {
       { organizationId, purchaseOrderId, approvedByUserId: userId },
       "Purchase order approved successfully",
     );
+
+    await this.audit.recordAudit({
+      organizationId,
+      actorUserId: userId,
+      action: AuditAction.PURCHASE_ORDER_APPROVED,
+      resourceType: AuditResourceType.PURCHASE_ORDER,
+      resourceId: updated.id,
+      metadata: {
+        orderNumber: updated.orderNumber,
+        approvedByUserId: userId,
+      },
+    });
+
+    await this.notifications.createNotification({
+      organizationId,
+      recipientUserId: updated.createdByUserId,
+      type: NotificationType.PURCHASE_ORDER_APPROVED,
+      title: "Purchase Order Approved",
+      message: `Your purchase order ${updated.orderNumber} has been approved.`,
+      data: {
+        purchaseOrderId: updated.id,
+        orderNumber: updated.orderNumber,
+      },
+    });
 
     return toSafePurchaseOrder(updated as PurchaseOrderWithDetails);
   }
@@ -569,6 +640,28 @@ export class PurchaseOrderService {
       { organizationId, purchaseOrderId, orderNumber: updated.orderNumber },
       "Purchase order cancelled successfully",
     );
+
+    await this.audit.recordAudit({
+      organizationId,
+      action: AuditAction.PURCHASE_ORDER_CANCELLED,
+      resourceType: AuditResourceType.PURCHASE_ORDER,
+      resourceId: updated.id,
+      metadata: {
+        orderNumber: updated.orderNumber,
+      },
+    });
+
+    await this.notifications.createNotification({
+      organizationId,
+      recipientUserId: updated.createdByUserId,
+      type: NotificationType.PURCHASE_ORDER_CANCELLED,
+      title: "Purchase Order Cancelled",
+      message: `Purchase order ${updated.orderNumber} has been cancelled.`,
+      data: {
+        purchaseOrderId: updated.id,
+        orderNumber: updated.orderNumber,
+      },
+    });
 
     return toSafePurchaseOrder(updated as PurchaseOrderWithDetails);
   }
@@ -683,7 +776,7 @@ export class PurchaseOrderService {
     // 5. Execute atomic transaction updating lines, inventory balances, ledger, and receipt audit
     return this.db.$transaction(async (tx) => {
       // Create receipt record
-      await tx.purchaseOrderReceipt.create({
+      const receipt = await tx.purchaseOrderReceipt.create({
         data: {
           organizationId,
           purchaseOrderId,
@@ -742,6 +835,35 @@ export class PurchaseOrderService {
       await tx.purchaseOrder.update({
         where: { id: purchaseOrderId },
         data: { status: newStatus },
+      });
+
+      await this.audit.recordAuditInTx(tx, {
+        organizationId,
+        actorUserId: userId,
+        action: AuditAction.PURCHASE_ORDER_RECEIVED,
+        resourceType: AuditResourceType.PURCHASE_ORDER_RECEIPT,
+        resourceId: receipt?.id ?? null,
+        metadata: {
+          purchaseOrderId: po.id,
+          orderNumber: po.orderNumber,
+          locationId: input.locationId,
+          reference: input.reference?.trim() || null,
+          status: newStatus,
+        },
+      });
+
+      await this.notifications.createNotificationInTx(tx, {
+        organizationId,
+        recipientUserId: po.createdByUserId,
+        type: NotificationType.PURCHASE_ORDER_RECEIVED,
+        title: "Purchase Order Delivery Received",
+        message: `Items for purchase order ${po.orderNumber} have been received.`,
+        data: {
+          purchaseOrderId: po.id,
+          orderNumber: po.orderNumber,
+          receiptId: receipt?.id ?? null,
+          status: newStatus,
+        },
       });
 
       logger.info(

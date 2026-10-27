@@ -2,6 +2,8 @@ import type { PrismaClient } from "@prisma/client";
 import { prisma } from "../../../infrastructure/database/prisma.client";
 import { NotFoundError, ConflictError } from "../../../common/errors/http-errors";
 import { logger } from "../../../infrastructure/logging/logger";
+import { AuditService } from "../../audit/audit.service";
+import { AuditAction, AuditResourceType } from "../../audit/audit.types";
 import type {
   CreateCategoryInput,
   UpdateCategoryInput,
@@ -17,7 +19,14 @@ import {
  * Service orchestrating product category catalog domain logic with strict tenant isolation.
  */
 export class CategoryService {
-  constructor(private readonly db: PrismaClient = prisma) {}
+  private readonly audit: AuditService;
+
+  constructor(
+    private readonly db: PrismaClient = prisma,
+    audit?: AuditService,
+  ) {
+    this.audit = audit ?? new AuditService(this.db);
+  }
 
   /**
    * Creates a new product category within the specified organization tenant.
@@ -56,6 +65,15 @@ export class CategoryService {
     });
 
     logger.info({ organizationId, categoryId: category.id, name: trimmedName }, "Category created");
+
+    await this.audit.recordAudit({
+      organizationId,
+      action: AuditAction.CATEGORY_CREATED,
+      resourceType: AuditResourceType.PRODUCT_CATEGORY,
+      resourceId: category.id,
+      metadata: { name: trimmedName },
+    });
+
     return toSafeCategory(category);
   }
 
@@ -194,6 +212,15 @@ export class CategoryService {
     });
 
     logger.info({ organizationId, categoryId }, "Category updated");
+
+    await this.audit.recordAudit({
+      organizationId,
+      action: AuditAction.CATEGORY_UPDATED,
+      resourceType: AuditResourceType.PRODUCT_CATEGORY,
+      resourceId: updated.id,
+      metadata: { name: updated.name },
+    });
+
     return toSafeCategory(updated);
   }
 

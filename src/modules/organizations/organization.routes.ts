@@ -12,6 +12,7 @@ import { supplierRouter } from "../procurement/suppliers/supplier.routes";
 import { purchaseOrderRouter } from "../procurement/purchase-orders/purchase-order.routes";
 import { dashboardRouter } from "../reporting/dashboard.routes";
 import { reportsRouter } from "../reporting/reports.routes";
+import { auditRouter } from "../audit/audit.routes";
 import {
   createOrganizationSchema,
   updateOrganizationSchema,
@@ -42,6 +43,7 @@ export function createOrganizationRouter(
   router.use("/:organizationId/purchase-orders", purchaseOrderRouter);
   router.use("/:organizationId/dashboard", dashboardRouter);
   router.use("/:organizationId/reports", reportsRouter);
+  router.use("/:organizationId/audit-logs", auditRouter);
 
   // POST /api/v1/organizations - Create organization + owner membership
   router.post(

@@ -2,6 +2,8 @@ import { type PrismaClient, type Prisma } from "@prisma/client";
 import { prisma } from "../../../infrastructure/database/prisma.client";
 import { NotFoundError, ConflictError, BadRequestError } from "../../../common/errors/http-errors";
 import { logger } from "../../../infrastructure/logging/logger";
+import { AuditService } from "../../audit/audit.service";
+import { AuditAction, AuditResourceType } from "../../audit/audit.types";
 import type {
   CreateLocationInput,
   UpdateLocationInput,
@@ -20,7 +22,14 @@ import { WarehouseStatus } from "../warehouses/warehouse.types";
  * code uniqueness per warehouse, and inactive warehouse guard rules.
  */
 export class LocationService {
-  constructor(private readonly db: PrismaClient = prisma) {}
+  private readonly audit: AuditService;
+
+  constructor(
+    private readonly db: PrismaClient = prisma,
+    audit?: AuditService,
+  ) {
+    this.audit = audit ?? new AuditService(this.db);
+  }
 
   /**
    * Creates a new storage location in an active warehouse.
@@ -82,6 +91,15 @@ export class LocationService {
       { organizationId, warehouseId, locationId: location.id, code: normalizedCode },
       "Storage location created successfully",
     );
+
+    await this.audit.recordAudit({
+      organizationId,
+      action: AuditAction.LOCATION_CREATED,
+      resourceType: AuditResourceType.STORAGE_LOCATION,
+      resourceId: location.id,
+      metadata: { warehouseId, code: normalizedCode, name: location.name },
+    });
+
     return toSafeLocation(location);
   }
 
@@ -247,6 +265,20 @@ export class LocationService {
       { organizationId, warehouseId, locationId },
       "Storage location updated successfully",
     );
+
+    const action =
+      input.status === LocationStatus.INACTIVE
+        ? AuditAction.LOCATION_DEACTIVATED
+        : AuditAction.LOCATION_UPDATED;
+
+    await this.audit.recordAudit({
+      organizationId,
+      action,
+      resourceType: AuditResourceType.STORAGE_LOCATION,
+      resourceId: updated.id,
+      metadata: { warehouseId, code: updated.code, name: updated.name, status: updated.status },
+    });
+
     return toSafeLocation(updated);
   }
 
@@ -278,6 +310,20 @@ export class LocationService {
     });
 
     logger.info({ organizationId, warehouseId, locationId }, "Storage location deactivated");
+
+    await this.audit.recordAudit({
+      organizationId,
+      action: AuditAction.LOCATION_DEACTIVATED,
+      resourceType: AuditResourceType.STORAGE_LOCATION,
+      resourceId: deactivated.id,
+      metadata: {
+        warehouseId,
+        code: deactivated.code,
+        name: deactivated.name,
+        status: deactivated.status,
+      },
+    });
+
     return toSafeLocation(deactivated);
   }
 }
