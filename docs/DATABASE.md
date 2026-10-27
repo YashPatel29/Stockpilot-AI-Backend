@@ -193,3 +193,115 @@ model DemandForecastPoint {
   @@map("demand_forecast_points")
 }
 ```
+
+---
+
+## 7. Inventory Anomaly Detection Schema (Feature 11)
+
+Feature 11 introduces organization-scoped inventory anomaly findings and detection run tracking:
+
+```prisma
+enum AnomalyCategory {
+  UNUSUALLY_LARGE_MOVEMENT
+  UNUSUAL_ADJUSTMENT
+  REPEATED_ADJUSTMENTS
+  UNUSUAL_FREQUENCY
+  UNUSUAL_TRANSFER_PATTERN
+}
+
+enum AnomalySeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AnomalyStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  DISMISSED
+}
+
+enum DetectionRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  INSUFFICIENT_DATA
+}
+
+model InventoryAnomaly {
+  id                   String          @id @default(uuid())
+  organizationId       String          @map("organization_id")
+  category             AnomalyCategory
+  severity             AnomalySeverity
+  status               AnomalyStatus   @default(OPEN)
+  productId            String?         @map("product_id")
+  warehouseId          String?         @map("warehouse_id")
+  locationId           String?         @map("location_id")
+  transactionId        String?         @map("transaction_id")
+  strategyName         String          @map("strategy_name")
+  strategyVersion      String          @map("strategy_version")
+  score                Decimal?        @map("score") @db.Decimal(10, 4)
+  explanation          String          @map("explanation")
+  evidence             Json            @map("evidence")
+  dedupKey             String          @map("dedup_key")
+  detectionWindowStart DateTime        @map("detection_window_start")
+  detectionWindowEnd   DateTime        @map("detection_window_end")
+  detectedAt           DateTime        @default(now()) @map("detected_at")
+  acknowledgedAt       DateTime?       @map("acknowledged_at")
+  acknowledgedByUserId String?         @map("acknowledged_by_user_id")
+  resolvedAt           DateTime?       @map("resolved_at")
+  resolvedByUserId     String?         @map("resolved_by_user_id")
+  resolutionNote       String?         @map("resolution_note")
+  dismissedAt          DateTime?       @map("dismissed_at")
+  dismissedByUserId    String?         @map("dismissed_by_user_id")
+  detectionRunId       String?         @map("detection_run_id")
+  createdAt            DateTime        @default(now()) @map("created_at")
+  updatedAt            DateTime        @updatedAt @map("updated_at")
+
+  organization       Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product            Product?              @relation(fields: [productId], references: [id], onDelete: SetNull)
+  warehouse          Warehouse?            @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  location           StorageLocation?      @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  transaction        InventoryTransaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  acknowledgedByUser User?                 @relation("AnomalyAcknowledgedBy", fields: [acknowledgedByUserId], references: [id], onDelete: SetNull)
+  resolvedByUser     User?                 @relation("AnomalyResolvedBy", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+  dismissedByUser    User?                 @relation("AnomalyDismissedBy", fields: [dismissedByUserId], references: [id], onDelete: SetNull)
+  detectionRun       AnomalyDetectionRun?  @relation(fields: [detectionRunId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, dedupKey])
+  @@index([organizationId, status])
+  @@index([organizationId, category])
+  @@index([organizationId, severity])
+  @@index([organizationId, productId])
+  @@index([organizationId, warehouseId])
+  @@index([organizationId, detectedAt])
+  @@map("inventory_anomalies")
+}
+
+model AnomalyDetectionRun {
+  id                String             @id @default(uuid())
+  organizationId    String             @map("organization_id")
+  status            DetectionRunStatus @default(PENDING)
+  windowDays        Int                @map("window_days")
+  startedAt         DateTime?          @map("started_at")
+  completedAt       DateTime?          @map("completed_at")
+  initiatedByUserId String?            @map("initiated_by_user_id")
+  findingsCount     Int                @default(0) @map("findings_count")
+  summary           Json?              @map("summary")
+  errorCode         String?            @map("error_code")
+  errorMessage      String?            @map("error_message")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  initiatedByUser User?              @relation(fields: [initiatedByUserId], references: [id], onDelete: SetNull)
+  findings        InventoryAnomaly[]
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, status])
+  @@map("anomaly_detection_runs")
+}
+```

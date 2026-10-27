@@ -150,6 +150,7 @@ For in-depth architectural decisions, guides, and runbooks:
 - [Inventory Dashboard & Reporting Guide](./docs/API_DASHBOARD_REPORTING.md) — Executive inventory metrics, warehouse stock distribution, movement trends, low-stock alerts, and procurement commitment reports.
 - [Notifications & Audit Logs Guide](./docs/API_NOTIFICATIONS_AUDIT_LOGS.md) — User notifications, unread counters, transactional domain event delivery, append-only immutable audit trail, and recursive metadata sanitization.
 - [AI Demand Forecasting Guide](./docs/API_DEMAND_FORECASTING.md) — Deterministic statistical forecasting, observed consumption ledger extraction, 95% confidence intervals, and walk-forward backtesting (MAE, RMSE, WAPE).
+- [AI Inventory Anomaly Detection Guide](./docs/API_INVENTORY_ANOMALIES.md) — Non-destructive statistical ledger anomaly detection, Median Absolute Deviation (MAD), frequency surges, rebound transfers, review lifecycle, and admin alerts.
 - [API & Health Probes](./docs/API_HEALTH.md) — Liveness vs. readiness probes, response schemas, and orchestrator configs.
 - [Deployment Guide](./docs/DEPLOYMENT.md) — Production checklist, Docker multi-stage build, and graceful shutdown.
 

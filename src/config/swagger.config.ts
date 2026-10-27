@@ -105,6 +105,11 @@ export const swaggerSpec = {
       description:
         "Deterministic demand forecasting, point predictions, and walk-forward backtesting evaluation",
     },
+    {
+      name: "Inventory Anomalies",
+      description:
+        "Automated statistical anomaly detection across ledger transactions, review workflows, and finding lifecycle management",
+    },
   ],
   paths: {
     "/api/v1/auth/register": {
@@ -3388,6 +3393,258 @@ export const swaggerSpec = {
         },
       },
     },
+    "/api/v1/organizations/{organizationId}/anomalies/detection-runs": {
+      post: {
+        tags: ["Inventory Anomalies"],
+        summary: "Initiate bounded anomaly detection run",
+        description:
+          "Executes statistical detection strategies (large movements, unusual shrinkage, repeated adjustments, lateral transfer rebound) across historical ledger records.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: false,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/TriggerAnomalyDetectionInput" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Anomaly detection run initiated and completed",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/AnomalyDetectionRunDetailResponse" },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/ValidationError" },
+          "401": { $ref: "#/components/responses/UnauthorizedError" },
+          "403": { $ref: "#/components/responses/ForbiddenError" },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+      get: {
+        tags: ["Inventory Anomalies"],
+        summary: "List anomaly detection runs",
+        description: "Retrieves a paginated list of historical anomaly detection runs.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+          {
+            name: "status",
+            in: "query",
+            schema: {
+              type: "string",
+              enum: ["PENDING", "RUNNING", "COMPLETED", "FAILED"],
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "List of anomaly detection runs retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PaginatedDetectionRunsResponse" },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/UnauthorizedError" },
+          "403": { $ref: "#/components/responses/ForbiddenError" },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/anomalies/detection-runs/{runId}": {
+      get: {
+        tags: ["Inventory Anomalies"],
+        summary: "Get anomaly detection run detail",
+        description: "Retrieves details and associated findings for a specific detection run.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "runId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Detection run details retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/AnomalyDetectionRunDetailResponse" },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/UnauthorizedError" },
+          "403": { $ref: "#/components/responses/ForbiddenError" },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/anomalies": {
+      get: {
+        tags: ["Inventory Anomalies"],
+        summary: "List detected inventory anomalies",
+        description:
+          "Retrieves paginated anomaly findings with filtering by category, severity, status, and product.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+          {
+            name: "category",
+            in: "query",
+            schema: {
+              type: "string",
+              enum: [
+                "UNUSUALLY_LARGE_MOVEMENT",
+                "UNUSUAL_ADJUSTMENT",
+                "REPEATED_ADJUSTMENTS",
+                "UNUSUAL_TRANSFER_PATTERN",
+              ],
+            },
+          },
+          {
+            name: "severity",
+            in: "query",
+            schema: { type: "string", enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+          },
+          {
+            name: "status",
+            in: "query",
+            schema: {
+              type: "string",
+              enum: ["OPEN", "ACKNOWLEDGED", "RESOLVED", "DISMISSED"],
+            },
+          },
+          { name: "productId", in: "query", schema: { type: "string", format: "uuid" } },
+          { name: "warehouseId", in: "query", schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "List of anomalies retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PaginatedAnomaliesResponse" },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/UnauthorizedError" },
+          "403": { $ref: "#/components/responses/ForbiddenError" },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/anomalies/{anomalyId}": {
+      get: {
+        tags: ["Inventory Anomalies"],
+        summary: "Get anomaly finding details",
+        description:
+          "Retrieves complete information, statistical evidence, and explanation for an individual anomaly finding.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "anomalyId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Anomaly finding retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/InventoryAnomalyResponse" },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/UnauthorizedError" },
+          "403": { $ref: "#/components/responses/ForbiddenError" },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/anomalies/{anomalyId}/status": {
+      patch: {
+        tags: ["Inventory Anomalies"],
+        summary: "Update anomaly finding status",
+        description:
+          "Updates the review status of an anomaly finding (ACKNOWLEDGED, RESOLVED, DISMISSED) with resolution notes.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "anomalyId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UpdateAnomalyStatusInput" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Anomaly status updated successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/InventoryAnomalyResponse" },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/ValidationError" },
+          "401": { $ref: "#/components/responses/UnauthorizedError" },
+          "403": { $ref: "#/components/responses/ForbiddenError" },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+    },
   },
   components: {
     securitySchemes: {
@@ -4795,6 +5052,180 @@ export const swaggerSpec = {
               productEvaluations: {
                 type: "array",
                 items: { type: "object" },
+              },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      TriggerAnomalyDetectionInput: {
+        type: "object",
+        properties: {
+          windowDays: { type: "integer", minimum: 1, maximum: 90, default: 30, example: 30 },
+          productId: { type: "string", format: "uuid" },
+          warehouseId: { type: "string", format: "uuid" },
+          categories: {
+            type: "array",
+            items: {
+              type: "string",
+              enum: [
+                "UNUSUALLY_LARGE_MOVEMENT",
+                "UNUSUAL_ADJUSTMENT",
+                "REPEATED_ADJUSTMENTS",
+                "UNUSUAL_TRANSFER_PATTERN",
+              ],
+            },
+          },
+          minSeverity: {
+            type: "string",
+            enum: ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+          },
+        },
+      },
+      UpdateAnomalyStatusInput: {
+        type: "object",
+        required: ["status"],
+        properties: {
+          status: {
+            type: "string",
+            enum: ["ACKNOWLEDGED", "RESOLVED", "DISMISSED"],
+            example: "RESOLVED",
+          },
+          resolutionNote: {
+            type: "string",
+            maxLength: 1000,
+            example: "Physical inventory recount performed. Stock count confirmed.",
+          },
+        },
+      },
+      SafeInventoryAnomaly: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          organizationId: { type: "string", format: "uuid" },
+          category: { type: "string", example: "UNUSUALLY_LARGE_MOVEMENT" },
+          severity: { type: "string", example: "HIGH" },
+          status: { type: "string", example: "OPEN" },
+          productId: { type: "string", format: "uuid", nullable: true },
+          product: {
+            type: "object",
+            nullable: true,
+            properties: {
+              id: { type: "string", format: "uuid" },
+              name: { type: "string" },
+              sku: { type: "string" },
+            },
+          },
+          warehouseId: { type: "string", format: "uuid", nullable: true },
+          locationId: { type: "string", format: "uuid", nullable: true },
+          transactionId: { type: "string", format: "uuid", nullable: true },
+          strategyName: { type: "string", example: "UNUSUALLY_LARGE_MOVEMENT" },
+          strategyVersion: { type: "string", example: "1.0.0" },
+          score: { type: "string", example: "4.5000", nullable: true },
+          explanation: { type: "string" },
+          evidence: { type: "object" },
+          dedupKey: { type: "string" },
+          detectionWindowStart: { type: "string", format: "date-time" },
+          detectionWindowEnd: { type: "string", format: "date-time" },
+          detectedAt: { type: "string", format: "date-time" },
+          acknowledgedAt: { type: "string", format: "date-time", nullable: true },
+          resolvedAt: { type: "string", format: "date-time", nullable: true },
+          resolutionNote: { type: "string", nullable: true },
+          dismissedAt: { type: "string", format: "date-time", nullable: true },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      SafeAnomalyDetectionRun: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          organizationId: { type: "string", format: "uuid" },
+          status: { type: "string", example: "COMPLETED" },
+          windowDays: { type: "integer", example: 30 },
+          startedAt: { type: "string", format: "date-time", nullable: true },
+          completedAt: { type: "string", format: "date-time", nullable: true },
+          findingsCount: { type: "integer", example: 2 },
+          summary: { type: "object", nullable: true },
+          errorCode: { type: "string", nullable: true },
+          errorMessage: { type: "string", nullable: true },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      InventoryAnomalyResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: { $ref: "#/components/schemas/SafeInventoryAnomaly" },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      AnomalyDetectionRunDetailResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            allOf: [
+              { $ref: "#/components/schemas/SafeAnomalyDetectionRun" },
+              {
+                type: "object",
+                properties: {
+                  findings: {
+                    type: "array",
+                    items: { $ref: "#/components/schemas/SafeInventoryAnomaly" },
+                  },
+                },
+              },
+            ],
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      PaginatedAnomaliesResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              anomalies: {
+                type: "array",
+                items: { $ref: "#/components/schemas/SafeInventoryAnomaly" },
+              },
+              pagination: {
+                type: "object",
+                properties: {
+                  page: { type: "integer", example: 1 },
+                  limit: { type: "integer", example: 20 },
+                  total: { type: "integer", example: 5 },
+                  totalPages: { type: "integer", example: 1 },
+                },
+              },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      PaginatedDetectionRunsResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              runs: {
+                type: "array",
+                items: { $ref: "#/components/schemas/SafeAnomalyDetectionRun" },
+              },
+              pagination: {
+                type: "object",
+                properties: {
+                  page: { type: "integer", example: 1 },
+                  limit: { type: "integer", example: 20 },
+                  total: { type: "integer", example: 3 },
+                  totalPages: { type: "integer", example: 1 },
+                },
               },
             },
           },

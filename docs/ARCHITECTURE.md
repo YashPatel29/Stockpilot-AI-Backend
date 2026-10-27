@@ -129,3 +129,19 @@ StockPilot AI implements deterministic, explainable demand forecasting based dir
 - **Pluggable Engine (`IForecastingModel`)**: Implements `WeightedMovingAverageModel` with recency decay weighting, day-of-week seasonality ratios, and 95% confidence intervals derived from in-sample residual standard error.
 - **Zero-Filling & Temporal Alignment**: Historical days lacking consumption transactions are zero-filled rather than omitted, avoiding artificial compression of moving averages.
 - **Walk-Forward Backtesting (`Backtester`)**: Evaluates forecasting accuracy without future-data leakage by splitting the historical series into train and test horizons, evaluating Mean Absolute Error (MAE), Root Mean Squared Error (RMSE), and Weighted Absolute Percentage Error (WAPE).
+
+---
+
+## 7. AI Inventory Anomaly Detection Architecture (Feature 11)
+
+StockPilot AI implements non-destructive, statistical inventory anomaly detection over historical ledger records (`InventoryTransaction`):
+
+- **Safety & Non-Destructive Invariant**: Anomaly findings represent probabilistic signals for human review, never definitive proof of theft or misconduct. The subsystem never modifies stock balances, reverses ledger transactions, blocks user operations, or deletes records.
+- **Statistical Grounding**: Employs robust non-parametric metrics including Median and Median Absolute Deviation (MAD) with Modified Z-scores to identify extreme volume movements while remaining resilient to existing outliers.
+- **Modular Detection Strategies**:
+  - `UNUSUALLY_LARGE_MOVEMENT`: Outlier transaction quantities against product and transaction-type baseline.
+  - `UNUSUAL_ADJUSTMENT`: Unusually large negative shrinkage or uncharacteristic inventory reconciliation deltas.
+  - `REPEATED_ADJUSTMENTS`: Frequency spikes of cycle count corrections on the same product and location within sliding windows.
+  - `UNUSUAL_TRANSFER_PATTERN`: Rapid rebound or ping-pong lateral transfers between locations without misclassifying internal movements as demand.
+- **Deduplication & Idempotency**: Strict unique constraint on `[organizationId, dedupKey]` ensures repeatable scheduled runs do not duplicate active findings.
+- **Review Lifecycle**: Enforces structured lifecycle progression (`OPEN` $\to$ `ACKNOWLEDGED`, `RESOLVED`, `DISMISSED`) with reviewer attribution and immutable audit trail logging.

@@ -39,6 +39,10 @@ export const AuditAction = {
   PURCHASE_ORDER_CANCELLED: "purchase_order.cancelled",
   PURCHASE_ORDER_RECEIVED: "purchase_order.received",
   DEMAND_FORECAST_GENERATED: "demand_forecast.generated",
+  ANOMALY_DETECTION_RUN_CREATED: "anomaly_detection.run_created",
+  ANOMALY_ACKNOWLEDGED: "anomaly.acknowledged",
+  ANOMALY_RESOLVED: "anomaly.resolved",
+  ANOMALY_DISMISSED: "anomaly.dismissed",
 } as const;
 
 export type AuditActionType = (typeof AuditAction)[keyof typeof AuditAction] | string;
@@ -61,6 +65,8 @@ export const AuditResourceType = {
   PURCHASE_ORDER: "PurchaseOrder",
   PURCHASE_ORDER_RECEIPT: "PurchaseOrderReceipt",
   DEMAND_FORECAST_RUN: "DemandForecastRun",
+  INVENTORY_ANOMALY: "InventoryAnomaly",
+  ANOMALY_DETECTION_RUN: "AnomalyDetectionRun",
 } as const;
 
 export type AuditResourceTypeKey =

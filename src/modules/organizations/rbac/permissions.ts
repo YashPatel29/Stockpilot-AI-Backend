@@ -55,6 +55,10 @@ export const Permissions = {
   // Demand forecasting management
   FORECASTS_READ: "forecasts:read",
   FORECASTS_WRITE: "forecasts:write",
+
+  // Inventory anomaly detection management
+  ANOMALIES_READ: "anomalies:read",
+  ANOMALIES_WRITE: "anomalies:write",
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions];
@@ -92,6 +96,8 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.AUDIT_LOGS_READ,
     Permissions.FORECASTS_READ,
     Permissions.FORECASTS_WRITE,
+    Permissions.ANOMALIES_READ,
+    Permissions.ANOMALIES_WRITE,
   ],
   [OrganizationRole.ADMIN]: [
     Permissions.ORG_MEMBERS_READ,
@@ -118,6 +124,8 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.AUDIT_LOGS_READ,
     Permissions.FORECASTS_READ,
     Permissions.FORECASTS_WRITE,
+    Permissions.ANOMALIES_READ,
+    Permissions.ANOMALIES_WRITE,
   ],
   [OrganizationRole.MEMBER]: [
     Permissions.ORG_MEMBERS_READ,
@@ -131,6 +139,7 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.PURCHASE_ORDERS_READ,
     Permissions.REPORTS_READ,
     Permissions.FORECASTS_READ,
+    Permissions.ANOMALIES_READ,
   ],
 };
 
