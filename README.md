@@ -149,6 +149,7 @@ For in-depth architectural decisions, guides, and runbooks:
 - [Suppliers & Purchase Orders Guide](./docs/API_SUPPLIERS_PURCHASE_ORDERS.md) — Supplier catalog management, purchase order lifecycle, approvals, delivery receipts, and stock ledger synchronization.
 - [Inventory Dashboard & Reporting Guide](./docs/API_DASHBOARD_REPORTING.md) — Executive inventory metrics, warehouse stock distribution, movement trends, low-stock alerts, and procurement commitment reports.
 - [Notifications & Audit Logs Guide](./docs/API_NOTIFICATIONS_AUDIT_LOGS.md) — User notifications, unread counters, transactional domain event delivery, append-only immutable audit trail, and recursive metadata sanitization.
+- [AI Demand Forecasting Guide](./docs/API_DEMAND_FORECASTING.md) — Deterministic statistical forecasting, observed consumption ledger extraction, 95% confidence intervals, and walk-forward backtesting (MAE, RMSE, WAPE).
 - [API & Health Probes](./docs/API_HEALTH.md) — Liveness vs. readiness probes, response schemas, and orchestrator configs.
 - [Deployment Guide](./docs/DEPLOYMENT.md) — Production checklist, Docker multi-stage build, and graceful shutdown.
 

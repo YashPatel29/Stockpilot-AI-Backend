@@ -65,13 +65,15 @@ async function bootstrap(): Promise<void> {
 
     try {
       // 1. Stop accepting new HTTP requests
-      await new Promise<void>((resolve, reject) => {
-        server.close((err) => {
-          if (err) return reject(err);
-          logger.info("HTTP server closed to new connections.");
-          resolve();
+      if (server.listening) {
+        await new Promise<void>((resolve, reject) => {
+          server.close((err) => {
+            if (err) return reject(err);
+            logger.info("HTTP server closed to new connections.");
+            resolve();
+          });
         });
-      });
+      }
 
       // 2. Disconnect database pool
       await databaseService.disconnect();

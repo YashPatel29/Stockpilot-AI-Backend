@@ -51,6 +51,10 @@ export const Permissions = {
 
   // Audit logs management
   AUDIT_LOGS_READ: "audit_logs:read",
+
+  // Demand forecasting management
+  FORECASTS_READ: "forecasts:read",
+  FORECASTS_WRITE: "forecasts:write",
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions];
@@ -86,6 +90,8 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.PURCHASE_ORDERS_WRITE,
     Permissions.REPORTS_READ,
     Permissions.AUDIT_LOGS_READ,
+    Permissions.FORECASTS_READ,
+    Permissions.FORECASTS_WRITE,
   ],
   [OrganizationRole.ADMIN]: [
     Permissions.ORG_MEMBERS_READ,
@@ -110,6 +116,8 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.PURCHASE_ORDERS_WRITE,
     Permissions.REPORTS_READ,
     Permissions.AUDIT_LOGS_READ,
+    Permissions.FORECASTS_READ,
+    Permissions.FORECASTS_WRITE,
   ],
   [OrganizationRole.MEMBER]: [
     Permissions.ORG_MEMBERS_READ,
@@ -122,6 +130,7 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.SUPPLIERS_READ,
     Permissions.PURCHASE_ORDERS_READ,
     Permissions.REPORTS_READ,
+    Permissions.FORECASTS_READ,
   ],
 };
 

@@ -100,6 +100,11 @@ export const swaggerSpec = {
       description:
         "Append-only audit trail and activity log querying for organization administrators",
     },
+    {
+      name: "Demand Forecasting",
+      description:
+        "Deterministic demand forecasting, point predictions, and walk-forward backtesting evaluation",
+    },
   ],
   paths: {
     "/api/v1/auth/register": {
@@ -3229,6 +3234,160 @@ export const swaggerSpec = {
         },
       },
     },
+    "/api/v1/organizations/{organizationId}/forecasts/demand": {
+      post: {
+        tags: ["Demand Forecasting"],
+        summary: "Initiate demand forecast run",
+        description:
+          "Executes deterministic demand forecasting based on historical inventory ledger consumption records, generating time-series point predictions with 95% confidence intervals and walk-forward backtesting evaluation.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: false,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/CreateDemandForecastInput" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description:
+              "Demand forecast run completed successfully or marked INSUFFICIENT_HISTORY",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/DemandForecastRunDetailResponse" },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/ValidationError" },
+          "401": { $ref: "#/components/responses/UnauthorizedError" },
+          "403": { $ref: "#/components/responses/ForbiddenError" },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+          "422": { $ref: "#/components/responses/ValidationError" },
+        },
+      },
+      get: {
+        tags: ["Demand Forecasting"],
+        summary: "List demand forecast runs",
+        description:
+          "Retrieves a paginated list of historical demand forecast runs with optional status and date filters.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+          {
+            name: "status",
+            in: "query",
+            schema: {
+              type: "string",
+              enum: ["PENDING", "RUNNING", "COMPLETED", "FAILED", "INSUFFICIENT_HISTORY"],
+            },
+          },
+          { name: "startDate", in: "query", schema: { type: "string", format: "date-time" } },
+          { name: "endDate", in: "query", schema: { type: "string", format: "date-time" } },
+        ],
+        responses: {
+          "200": {
+            description: "List of demand forecast runs retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PaginatedForecastRunsResponse" },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/UnauthorizedError" },
+          "403": { $ref: "#/components/responses/ForbiddenError" },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/forecasts/demand/{forecastId}": {
+      get: {
+        tags: ["Demand Forecasting"],
+        summary: "Get demand forecast run details",
+        description:
+          "Retrieves metadata and time-series prediction points for a specific demand forecast run.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "forecastId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Demand forecast run details retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/DemandForecastRunDetailResponse" },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/UnauthorizedError" },
+          "403": { $ref: "#/components/responses/ForbiddenError" },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/forecasts/demand/{forecastId}/evaluation": {
+      get: {
+        tags: ["Demand Forecasting"],
+        summary: "Get demand forecast evaluation metrics",
+        description:
+          "Retrieves walk-forward backtesting evaluation report (MAE, RMSE, WAPE) for a completed forecast run.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "forecastId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Forecast evaluation metrics retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/DemandForecastEvaluationResponse" },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/ValidationError" },
+          "401": { $ref: "#/components/responses/UnauthorizedError" },
+          "403": { $ref: "#/components/responses/ForbiddenError" },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+    },
   },
   components: {
     securitySchemes: {
@@ -4497,6 +4656,145 @@ export const swaggerSpec = {
                   total: { type: "integer", example: 10 },
                   totalPages: { type: "integer", example: 1 },
                 },
+              },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      CreateDemandForecastInput: {
+        type: "object",
+        properties: {
+          productId: { type: "string", format: "uuid", description: "Optional single product ID" },
+          productIds: {
+            type: "array",
+            items: { type: "string", format: "uuid" },
+            description: "Optional array of product IDs to forecast",
+          },
+          horizonDays: { type: "integer", minimum: 1, maximum: 90, default: 14 },
+          lookbackDays: { type: "integer", minimum: 14, maximum: 365, default: 30 },
+          granularity: { type: "string", enum: ["DAILY"], default: "DAILY" },
+        },
+      },
+      SafeDemandForecastPointDto: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          forecastRunId: { type: "string", format: "uuid" },
+          productId: { type: "string", format: "uuid" },
+          productName: { type: "string", example: "Alpha Industrial Widget" },
+          productSku: { type: "string", example: "WGT-ALPHA" },
+          periodStart: { type: "string", format: "date-time" },
+          periodEnd: { type: "string", format: "date-time" },
+          predictedDemand: { type: "string", example: "12.5000" },
+          lowerBound: { type: "string", nullable: true, example: "9.2000" },
+          upperBound: { type: "string", nullable: true, example: "15.8000" },
+          unitOfMeasure: { type: "string", example: "PIECE" },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      SafeDemandForecastRunDto: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          organizationId: { type: "string", format: "uuid" },
+          status: {
+            type: "string",
+            enum: ["PENDING", "RUNNING", "COMPLETED", "FAILED", "INSUFFICIENT_HISTORY"],
+            example: "COMPLETED",
+          },
+          modelName: { type: "string", example: "WeightedMovingAverage-DoW" },
+          modelVersion: { type: "string", example: "1.0.0" },
+          horizonDays: { type: "integer", example: 14 },
+          lookbackDays: { type: "integer", example: 30 },
+          granularity: { type: "string", example: "DAILY" },
+          startedAt: { type: "string", format: "date-time", nullable: true },
+          completedAt: { type: "string", format: "date-time", nullable: true },
+          initiatedByUserId: { type: "string", format: "uuid", nullable: true },
+          errorCode: { type: "string", nullable: true },
+          errorMessage: { type: "string", nullable: true },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      DemandForecastRunDetailResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            allOf: [
+              { $ref: "#/components/schemas/SafeDemandForecastRunDto" },
+              {
+                type: "object",
+                properties: {
+                  points: {
+                    type: "array",
+                    items: { $ref: "#/components/schemas/SafeDemandForecastPointDto" },
+                  },
+                  totalPoints: { type: "integer", example: 14 },
+                  productCount: { type: "integer", example: 1 },
+                  evaluation: { type: "object", nullable: true },
+                },
+              },
+            ],
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      PaginatedForecastRunsResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              runs: {
+                type: "array",
+                items: { $ref: "#/components/schemas/SafeDemandForecastRunDto" },
+              },
+              pagination: {
+                type: "object",
+                properties: {
+                  page: { type: "integer", example: 1 },
+                  limit: { type: "integer", example: 20 },
+                  total: { type: "integer", example: 5 },
+                  totalPages: { type: "integer", example: 1 },
+                },
+              },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      DemandForecastEvaluationResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              forecastRunId: { type: "string", format: "uuid" },
+              modelName: { type: "string", example: "WeightedMovingAverage-DoW" },
+              modelVersion: { type: "string", example: "1.0.0" },
+              evaluationWindow: {
+                type: "object",
+                properties: {
+                  startDate: { type: "string", example: "2026-10-01" },
+                  endDate: { type: "string", example: "2026-10-07" },
+                  periods: { type: "integer", example: 7 },
+                },
+              },
+              aggregateMetrics: {
+                type: "object",
+                properties: {
+                  mae: { type: "number", example: 1.25 },
+                  rmse: { type: "number", example: 1.85 },
+                  wape: { type: "number", example: 0.12 },
+                },
+              },
+              productEvaluations: {
+                type: "array",
+                items: { type: "object" },
               },
             },
           },

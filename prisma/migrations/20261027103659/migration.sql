@@ -1,0 +1,2 @@
+-- RenameIndex
+ALTER INDEX "demand_forecast_points_forecast_run_id_product_id_period_start_" RENAME TO "demand_forecast_points_forecast_run_id_product_id_period_st_key";

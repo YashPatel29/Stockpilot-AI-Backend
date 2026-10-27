@@ -37,6 +37,7 @@ model Organization {
   purchaseOrderReceipts PurchaseOrderReceipt[]
   notifications         Notification[]
   auditLogs             AuditLog[]
+  demandForecastRuns    DemandForecastRun[]
 
   @@index([slug])
   @@map("organizations")
@@ -60,6 +61,7 @@ model User {
   purchaseOrderReceipts  PurchaseOrderReceipt[]   @relation("ReceivedPurchaseOrders")
   notifications          Notification[]
   auditLogs              AuditLog[]
+  initiatedDemandForecasts DemandForecastRun[]
 
   @@index([email])
   @@map("users")
@@ -171,6 +173,7 @@ model Product {
   inventoryBalances     InventoryBalance[]
   inventoryTransactions InventoryTransaction[]
   purchaseOrderItems    PurchaseOrderItem[]
+  demandForecastPoints  DemandForecastPoint[]
 
   @@unique([organizationId, sku])
   @@index([organizationId])
@@ -501,5 +504,66 @@ model AuditLog {
   @@index([resourceType, resourceId])
   @@map("audit_logs")
 }
+
+/// Execution status of an organization-scoped demand forecast run.
+enum ForecastRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  INSUFFICIENT_HISTORY
+}
+
+/// Historical or active demand forecast run metadata.
+model DemandForecastRun {
+  id                String            @id @default(uuid())
+  organizationId    String            @map("organization_id")
+  status            ForecastRunStatus @default(PENDING)
+  modelName         String            @map("model_name")
+  modelVersion      String            @map("model_version")
+  horizonDays       Int               @map("horizon_days")
+  lookbackDays      Int               @map("lookback_days")
+  granularity       String            @default("DAILY")
+  startedAt         DateTime?         @map("started_at")
+  completedAt       DateTime?         @map("completed_at")
+  initiatedByUserId String?           @map("initiated_by_user_id")
+  errorCode         String?           @map("error_code")
+  errorMessage      String?           @map("error_message")
+  metadata          Json?             @map("metadata")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  organization    Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  initiatedByUser User?                 @relation(fields: [initiatedByUserId], references: [id], onDelete: SetNull)
+  points          DemandForecastPoint[]
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, status])
+  @@map("demand_forecast_runs")
+}
+
+/// Time-series point prediction within a demand forecast run.
+model DemandForecastPoint {
+  id              String   @id @default(uuid())
+  forecastRunId   String   @map("forecast_run_id")
+  productId       String   @map("product_id")
+  periodStart     DateTime @map("period_start")
+  periodEnd       DateTime @map("period_end")
+  predictedDemand Decimal  @map("predicted_demand") @db.Decimal(18, 4)
+  lowerBound      Decimal? @map("lower_bound") @db.Decimal(18, 4)
+  upperBound      Decimal? @map("upper_bound") @db.Decimal(18, 4)
+  unitOfMeasure   String   @map("unit_of_measure")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  forecastRun DemandForecastRun @relation(fields: [forecastRunId], references: [id], onDelete: Cascade)
+  product     Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([forecastRunId, productId, periodStart])
+  @@index([forecastRunId])
+  @@index([productId])
+  @@index([periodStart])
+  @@map("demand_forecast_points")
+}
+
 
 

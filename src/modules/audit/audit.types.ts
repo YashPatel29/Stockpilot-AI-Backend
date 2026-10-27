@@ -38,6 +38,7 @@ export const AuditAction = {
   PURCHASE_ORDER_APPROVED: "purchase_order.approved",
   PURCHASE_ORDER_CANCELLED: "purchase_order.cancelled",
   PURCHASE_ORDER_RECEIVED: "purchase_order.received",
+  DEMAND_FORECAST_GENERATED: "demand_forecast.generated",
 } as const;
 
 export type AuditActionType = (typeof AuditAction)[keyof typeof AuditAction] | string;
@@ -59,6 +60,7 @@ export const AuditResourceType = {
   SUPPLIER: "Supplier",
   PURCHASE_ORDER: "PurchaseOrder",
   PURCHASE_ORDER_RECEIPT: "PurchaseOrderReceipt",
+  DEMAND_FORECAST_RUN: "DemandForecastRun",
 } as const;
 
 export type AuditResourceTypeKey =

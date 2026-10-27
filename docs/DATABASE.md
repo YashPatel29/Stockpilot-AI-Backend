@@ -128,3 +128,68 @@ In high-concurrency production environments (e.g. AWS ECS, Kubernetes, Cloud Run
 - **NEVER** commit plain-text credentials or production database URLs into repository files.
 - Always apply schema changes via versioned migration files in `prisma/migrations/`.
 - Ensure column additions on large production tables provide non-blocking defaults or are added via expandable migration patterns.
+
+---
+
+## 6. Demand Forecasting Schema (Feature 10)
+
+Feature 10 introduces organization-scoped demand forecasting models:
+
+```prisma
+enum ForecastRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  INSUFFICIENT_HISTORY
+}
+
+model DemandForecastRun {
+  id                String            @id @default(uuid())
+  organizationId    String            @map("organization_id")
+  status            ForecastRunStatus @default(PENDING)
+  modelName         String            @map("model_name")
+  modelVersion      String            @map("model_version")
+  horizonDays       Int               @map("horizon_days")
+  lookbackDays      Int               @map("lookback_days")
+  granularity       String            @default("DAILY")
+  startedAt         DateTime?         @map("started_at")
+  completedAt       DateTime?         @map("completed_at")
+  initiatedByUserId String?           @map("initiated_by_user_id")
+  errorCode         String?           @map("error_code")
+  errorMessage      String?           @map("error_message")
+  metadata          Json?             @map("metadata")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  organization    Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  initiatedByUser User?                 @relation(fields: [initiatedByUserId], references: [id], onDelete: SetNull)
+  points          DemandForecastPoint[]
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, status])
+  @@map("demand_forecast_runs")
+}
+
+model DemandForecastPoint {
+  id              String   @id @default(uuid())
+  forecastRunId   String   @map("forecast_run_id")
+  productId       String   @map("product_id")
+  periodStart     DateTime @map("period_start")
+  periodEnd       DateTime @map("period_end")
+  predictedDemand Decimal  @map("predicted_demand") @db.Decimal(18, 4)
+  lowerBound      Decimal? @map("lower_bound") @db.Decimal(18, 4)
+  upperBound      Decimal? @map("upper_bound") @db.Decimal(18, 4)
+  unitOfMeasure   String   @map("unit_of_measure")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  forecastRun DemandForecastRun @relation(fields: [forecastRunId], references: [id], onDelete: Cascade)
+  product     Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([forecastRunId, productId, periodStart])
+  @@index([forecastRunId])
+  @@index([productId])
+  @@index([periodStart])
+  @@map("demand_forecast_points")
+}
+```

@@ -118,3 +118,14 @@ The AI boundary is designed to ensure the server starts and operates cleanly wit
   - `MockAiProvider`: Available for deterministic testing and local development.
   - Vendor Adapters (OpenAI, Anthropic): Instantiated only when explicitly configured.
 - Execution boundaries enforce `AI_REQUEST_TIMEOUT_MS` (default: 30,000ms) and `AI_MAX_GRAPH_STEPS` (default: 15) to safeguard against runaway loops in state graphs.
+
+---
+
+## 6. AI Demand Forecasting Architecture (Feature 10)
+
+StockPilot AI implements deterministic, explainable demand forecasting based directly on append-only historical inventory ledger consumption records:
+
+- **Demand Semantics**: Strictly extracts `InventoryTransaction` records with `type = "ISSUE"`, representing observed warehouse disbursements. Receipts, lateral transfers, and count adjustments are excluded to preserve demand fidelity.
+- **Pluggable Engine (`IForecastingModel`)**: Implements `WeightedMovingAverageModel` with recency decay weighting, day-of-week seasonality ratios, and 95% confidence intervals derived from in-sample residual standard error.
+- **Zero-Filling & Temporal Alignment**: Historical days lacking consumption transactions are zero-filled rather than omitted, avoiding artificial compression of moving averages.
+- **Walk-Forward Backtesting (`Backtester`)**: Evaluates forecasting accuracy without future-data leakage by splitting the historical series into train and test horizons, evaluating Mean Absolute Error (MAE), Root Mean Squared Error (RMSE), and Weighted Absolute Percentage Error (WAPE).
