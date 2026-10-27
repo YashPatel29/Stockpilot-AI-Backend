@@ -210,53 +210,17 @@ export class InventoryService {
     // 4. Atomic balance upsert and ledger creation in a database transaction
     return this.executeWithRetry(async () => {
       return this.db.$transaction(async (tx) => {
-        const balance = await tx.inventoryBalance.upsert({
-          where: {
-            productId_locationId: {
-              productId: input.productId,
-              locationId: input.locationId,
-            },
-          },
-          create: {
-            organizationId,
-            productId: input.productId,
-            warehouseId: location.warehouseId,
-            locationId: input.locationId,
-            quantityOnHand: qtyDecimal,
-          },
-          update: {
-            quantityOnHand: {
-              increment: qtyDecimal,
-            },
-          },
-          include: {
-            product: true,
-            warehouse: true,
-            location: true,
-          },
-        });
-
-        const transaction = await tx.inventoryTransaction.create({
-          data: {
-            organizationId,
-            productId: input.productId,
-            warehouseId: location.warehouseId,
-            type: InventoryTransactionType.RECEIPT,
-            quantity: qtyDecimal,
-            quantityDelta: qtyDecimal,
-            destinationLocationId: input.locationId,
-            reference: input.reference?.trim() || null,
-            notes: input.notes?.trim() || null,
-            idempotencyKey: input.idempotencyKey?.trim() || null,
-            requestHash,
-            performedByUserId: userId,
-          },
-          include: {
-            product: true,
-            warehouse: true,
-            destinationLocation: true,
-            performedByUser: true,
-          },
+        const { balance, transaction } = await this.recordReceiptInTx(tx, {
+          organizationId,
+          userId,
+          warehouseId: location.warehouseId,
+          locationId: input.locationId,
+          productId: input.productId,
+          quantity: qtyDecimal,
+          reference: input.reference,
+          notes: input.notes,
+          idempotencyKey: input.idempotencyKey,
+          requestHash,
         });
 
         logger.info(
@@ -276,6 +240,77 @@ export class InventoryService {
         };
       });
     });
+  }
+
+  /**
+   * Internal method allowing transactional stock receipt updates from external orchestrators (e.g., PurchaseOrderService).
+   * Atomically upserts InventoryBalance and creates an InventoryTransaction ledger record.
+   */
+  public async recordReceiptInTx(
+    tx: Prisma.TransactionClient,
+    params: {
+      organizationId: string;
+      userId: string;
+      warehouseId: string;
+      locationId: string;
+      productId: string;
+      quantity: Prisma.Decimal;
+      reference?: string | null;
+      notes?: string | null;
+      idempotencyKey?: string | null;
+      requestHash?: string | null;
+    },
+  ) {
+    const balance = await tx.inventoryBalance.upsert({
+      where: {
+        productId_locationId: {
+          productId: params.productId,
+          locationId: params.locationId,
+        },
+      },
+      create: {
+        organizationId: params.organizationId,
+        productId: params.productId,
+        warehouseId: params.warehouseId,
+        locationId: params.locationId,
+        quantityOnHand: params.quantity,
+      },
+      update: {
+        quantityOnHand: {
+          increment: params.quantity,
+        },
+      },
+      include: {
+        product: true,
+        warehouse: true,
+        location: true,
+      },
+    });
+
+    const transaction = await tx.inventoryTransaction.create({
+      data: {
+        organizationId: params.organizationId,
+        productId: params.productId,
+        warehouseId: params.warehouseId,
+        type: InventoryTransactionType.RECEIPT,
+        quantity: params.quantity,
+        quantityDelta: params.quantity,
+        destinationLocationId: params.locationId,
+        reference: params.reference?.trim() || null,
+        notes: params.notes?.trim() || null,
+        idempotencyKey: params.idempotencyKey?.trim() || null,
+        requestHash: params.requestHash ?? null,
+        performedByUserId: params.userId,
+      },
+      include: {
+        product: true,
+        warehouse: true,
+        destinationLocation: true,
+        performedByUser: true,
+      },
+    });
+
+    return { balance, transaction };
   }
 
   /**

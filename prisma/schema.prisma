@@ -32,6 +32,9 @@ model Organization {
   storageLocations      StorageLocation[]
   inventoryBalances     InventoryBalance[]
   inventoryTransactions InventoryTransaction[]
+  suppliers             Supplier[]
+  purchaseOrders        PurchaseOrder[]
+  purchaseOrderReceipts PurchaseOrderReceipt[]
 
   @@index([slug])
   @@map("organizations")
@@ -46,10 +49,13 @@ model User {
   status          String                   @default("ACTIVE")
   createdAt       DateTime                 @default(now()) @map("created_at")
   updatedAt       DateTime                 @updatedAt @map("updated_at")
-  refreshTokens         RefreshToken[]
-  memberships           OrganizationMembership[]
-  sentInvitations       OrganizationInvitation[] @relation("InvitedByUser")
-  inventoryTransactions InventoryTransaction[]
+  refreshTokens          RefreshToken[]
+  memberships            OrganizationMembership[]
+  sentInvitations        OrganizationInvitation[] @relation("InvitedByUser")
+  inventoryTransactions  InventoryTransaction[]
+  createdPurchaseOrders  PurchaseOrder[]          @relation("CreatedPurchaseOrders")
+  approvedPurchaseOrders PurchaseOrder[]          @relation("ApprovedPurchaseOrders")
+  purchaseOrderReceipts  PurchaseOrderReceipt[]   @relation("ReceivedPurchaseOrders")
 
   @@index([email])
   @@map("users")
@@ -160,6 +166,7 @@ model Product {
   category              ProductCategory?       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   inventoryBalances     InventoryBalance[]
   inventoryTransactions InventoryTransaction[]
+  purchaseOrderItems    PurchaseOrderItem[]
 
   @@unique([organizationId, sku])
   @@index([organizationId])
@@ -229,6 +236,7 @@ model StorageLocation {
   inventoryBalances       InventoryBalance[]
   sourceTransactions      InventoryTransaction[] @relation("SourceLocationTransactions")
   destinationTransactions InventoryTransaction[] @relation("DestinationLocationTransactions")
+  purchaseOrderReceipts   PurchaseOrderReceipt[]
 
   @@unique([warehouseId, code])
   @@index([warehouseId])
@@ -308,5 +316,125 @@ model InventoryTransaction {
   @@index([organizationId, type])
   @@index([performedByUserId])
   @@map("inventory_transactions")
+}
+
+/// Supplier entity providing catalog items and inventory replenishment.
+model Supplier {
+  id             String   @id @default(uuid())
+  organizationId String   @map("organization_id")
+  name           String
+  code           String?
+  email          String?
+  phone          String?
+  contactPerson  String?  @map("contact_person")
+  address        String?
+  taxIdentifier  String?  @map("tax_identifier")
+  notes          String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([organizationId, isActive])
+  @@index([organizationId, name])
+  @@map("suppliers")
+}
+
+/// Lifecycle workflow status for purchase orders.
+enum PurchaseOrderStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+/// Purchase order tracking procurement commitments from suppliers.
+model PurchaseOrder {
+  id                   String              @id @default(uuid())
+  organizationId       String              @map("organization_id")
+  supplierId           String              @map("supplier_id")
+  orderNumber          String              @map("order_number")
+  status               PurchaseOrderStatus @default(DRAFT)
+  orderDate            DateTime            @default(now()) @map("order_date")
+  expectedDeliveryDate DateTime?           @map("expected_delivery_date")
+  currency             String              @default("USD")
+  subtotal             Decimal             @default(0) @db.Decimal(14, 4)
+  taxAmount            Decimal             @default(0) @map("tax_amount") @db.Decimal(14, 4)
+  totalAmount          Decimal             @default(0) @map("total_amount") @db.Decimal(14, 4)
+  notes                String?
+  createdByUserId      String              @map("created_by_user_id")
+  approvedByUserId     String?             @map("approved_by_user_id")
+  approvedAt           DateTime?           @map("approved_at")
+  cancelledAt          DateTime?           @map("cancelled_at")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplier       Supplier               @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  createdByUser  User                   @relation("CreatedPurchaseOrders", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  approvedByUser User?                  @relation("ApprovedPurchaseOrders", fields: [approvedByUserId], references: [id], onDelete: Restrict)
+  items          PurchaseOrderItem[]
+  receipts       PurchaseOrderReceipt[]
+
+  @@unique([organizationId, orderNumber])
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, supplierId])
+  @@index([organizationId, orderDate])
+  @@index([createdByUserId])
+  @@index([approvedByUserId])
+  @@map("purchase_orders")
+}
+
+/// Line item within a purchase order specifying ordered and received product quantities.
+model PurchaseOrderItem {
+  id               String   @id @default(uuid())
+  purchaseOrderId  String   @map("purchase_order_id")
+  productId        String   @map("product_id")
+  quantityOrdered  Decimal  @map("quantity_ordered") @db.Decimal(18, 4)
+  quantityReceived Decimal  @default(0) @map("quantity_received") @db.Decimal(18, 4)
+  unitCost         Decimal  @map("unit_cost") @db.Decimal(14, 4)
+  lineTotal        Decimal  @map("line_total") @db.Decimal(14, 4)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+  @@map("purchase_order_items")
+}
+
+/// Audit record for partial and complete delivery receipts against a purchase order.
+model PurchaseOrderReceipt {
+  id               String   @id @default(uuid())
+  organizationId   String   @map("organization_id")
+  purchaseOrderId  String   @map("purchase_order_id")
+  locationId       String   @map("location_id")
+  reference        String?  @map("reference")
+  notes            String?  @map("notes")
+  idempotencyKey   String?  @map("idempotency_key")
+  requestHash      String?  @map("request_hash")
+  receivedByUserId String   @map("received_by_user_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  purchaseOrder  PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  location       StorageLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  receivedByUser User            @relation("ReceivedPurchaseOrders", fields: [receivedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId])
+  @@index([purchaseOrderId])
+  @@index([locationId])
+  @@index([receivedByUserId])
+  @@map("purchase_order_receipts")
 }
 

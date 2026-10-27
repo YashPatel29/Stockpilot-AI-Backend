@@ -73,6 +73,15 @@ export const swaggerSpec = {
       name: "Health Probes",
       description: "Container orchestrator probes (liveness, readiness) and system telemetry",
     },
+    {
+      name: "Suppliers",
+      description: "Supplier catalog management, contact details, and procurement partners",
+    },
+    {
+      name: "Purchase Orders",
+      description:
+        "Procurement lifecycle, line items, order approvals, cancellation, and inventory receipts",
+    },
   ],
   paths: {
     "/api/v1/auth/register": {
@@ -2283,6 +2292,542 @@ export const swaggerSpec = {
         },
       },
     },
+    "/api/v1/organizations/{organizationId}/suppliers": {
+      post: {
+        tags: ["Suppliers"],
+        summary: "Create supplier",
+        description: "Registers a new vendor with normalized uppercase code.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/CreateSupplierInput" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Supplier created successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeSupplierDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequestError" },
+          "409": { $ref: "#/components/responses/ConflictError" },
+        },
+      },
+      get: {
+        tags: ["Suppliers"],
+        summary: "List suppliers",
+        description: "Retrieves a paginated list of suppliers with search and status filters.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+          { name: "search", in: "query", schema: { type: "string" } },
+          { name: "isActive", in: "query", schema: { type: "boolean" } },
+        ],
+        responses: {
+          "200": {
+            description: "Suppliers retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PaginatedSuppliersResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/suppliers/{supplierId}": {
+      get: {
+        tags: ["Suppliers"],
+        summary: "Get supplier details",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "supplierId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Supplier retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeSupplierDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+      patch: {
+        tags: ["Suppliers"],
+        summary: "Update supplier",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "supplierId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UpdateSupplierInput" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Supplier updated successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeSupplierDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequestError" },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+          "409": { $ref: "#/components/responses/ConflictError" },
+        },
+      },
+      delete: {
+        tags: ["Suppliers"],
+        summary: "Deactivate supplier",
+        description:
+          "Soft-deactivates supplier (isActive: false) to preserve historic procurement audit trails.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "supplierId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Supplier deactivated successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeSupplierDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/purchase-orders": {
+      post: {
+        tags: ["Purchase Orders"],
+        summary: "Create purchase order",
+        description: "Creates a new purchase order draft with multiple line items.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/CreatePurchaseOrderInput" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Purchase order draft created successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafePurchaseOrderDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequestError" },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+      get: {
+        tags: ["Purchase Orders"],
+        summary: "List purchase orders",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+          { name: "supplierId", in: "query", schema: { type: "string", format: "uuid" } },
+          {
+            name: "status",
+            in: "query",
+            schema: {
+              type: "string",
+              enum: [
+                "DRAFT",
+                "PENDING_APPROVAL",
+                "APPROVED",
+                "PARTIALLY_RECEIVED",
+                "RECEIVED",
+                "CANCELLED",
+              ],
+            },
+          },
+          { name: "search", in: "query", schema: { type: "string" } },
+        ],
+        responses: {
+          "200": {
+            description: "Purchase orders retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PaginatedPurchaseOrdersResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/purchase-orders/{purchaseOrderId}": {
+      get: {
+        tags: ["Purchase Orders"],
+        summary: "Get purchase order details",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "purchaseOrderId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Purchase order retrieved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafePurchaseOrderDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+      patch: {
+        tags: ["Purchase Orders"],
+        summary: "Update draft purchase order",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "purchaseOrderId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/UpdatePurchaseOrderInput" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Purchase order updated successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafePurchaseOrderDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequestError" },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/purchase-orders/{purchaseOrderId}/submit": {
+      post: {
+        tags: ["Purchase Orders"],
+        summary: "Submit purchase order for approval",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "purchaseOrderId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Purchase order submitted for approval",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafePurchaseOrderDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequestError" },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/purchase-orders/{purchaseOrderId}/approve": {
+      post: {
+        tags: ["Purchase Orders"],
+        summary: "Approve purchase order",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "purchaseOrderId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Purchase order approved successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafePurchaseOrderDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequestError" },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/purchase-orders/{purchaseOrderId}/cancel": {
+      post: {
+        tags: ["Purchase Orders"],
+        summary: "Cancel purchase order",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "purchaseOrderId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Purchase order cancelled successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafePurchaseOrderDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequestError" },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/purchase-orders/{purchaseOrderId}/receipts": {
+      post: {
+        tags: ["Purchase Orders"],
+        summary: "Record delivery receipt and sync inventory",
+        description: "Atomically records delivered items, updates inventory balance and ledger.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "purchaseOrderId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ReceivePurchaseOrderItemsInput" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Items received and stock balances updated successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafePurchaseOrderDto" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/BadRequestError" },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+          "409": { $ref: "#/components/responses/ConflictError" },
+        },
+      },
+    },
   },
   components: {
     securitySchemes: {
@@ -2958,6 +3503,258 @@ export const swaggerSpec = {
                   page: { type: "integer", example: 1 },
                   limit: { type: "integer", example: 20 },
                   totalItems: { type: "integer", example: 5 },
+                  totalPages: { type: "integer", example: 1 },
+                  hasNextPage: { type: "boolean", example: false },
+                  hasPrevPage: { type: "boolean", example: false },
+                },
+              },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      CreateSupplierInput: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          name: { type: "string", example: "Acme Supplies Inc." },
+          code: { type: "string", nullable: true, example: "SUP-ACME-01" },
+          email: { type: "string", format: "email", nullable: true, example: "orders@acme.com" },
+          phone: { type: "string", nullable: true, example: "+1-555-0199" },
+          contactPerson: { type: "string", nullable: true, example: "Jane Doe" },
+          address: { type: "string", nullable: true, example: "100 Industrial Pkwy" },
+          taxIdentifier: { type: "string", nullable: true, example: "US-987654321" },
+          notes: { type: "string", nullable: true, example: "Key vendor" },
+          isActive: { type: "boolean", default: true },
+        },
+      },
+      UpdateSupplierInput: {
+        type: "object",
+        properties: {
+          name: { type: "string", example: "Acme Supplies Inc." },
+          code: { type: "string", nullable: true, example: "SUP-ACME-01" },
+          email: { type: "string", format: "email", nullable: true, example: "orders@acme.com" },
+          phone: { type: "string", nullable: true, example: "+1-555-0199" },
+          contactPerson: { type: "string", nullable: true, example: "Jane Doe" },
+          address: { type: "string", nullable: true, example: "100 Industrial Pkwy" },
+          taxIdentifier: { type: "string", nullable: true, example: "US-987654321" },
+          notes: { type: "string", nullable: true, example: "Key vendor" },
+          isActive: { type: "boolean" },
+        },
+      },
+      SafeSupplierDto: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          organizationId: { type: "string", format: "uuid" },
+          name: { type: "string", example: "Acme Supplies Inc." },
+          code: { type: "string", nullable: true, example: "SUP-ACME-01" },
+          email: { type: "string", format: "email", nullable: true, example: "orders@acme.com" },
+          phone: { type: "string", nullable: true, example: "+1-555-0199" },
+          contactPerson: { type: "string", nullable: true, example: "Jane Doe" },
+          address: { type: "string", nullable: true, example: "100 Industrial Pkwy" },
+          taxIdentifier: { type: "string", nullable: true, example: "US-987654321" },
+          notes: { type: "string", nullable: true, example: "Key vendor" },
+          isActive: { type: "boolean", example: true },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      PaginatedSuppliersResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              items: {
+                type: "array",
+                items: { $ref: "#/components/schemas/SafeSupplierDto" },
+              },
+              pagination: {
+                type: "object",
+                properties: {
+                  page: { type: "integer", example: 1 },
+                  limit: { type: "integer", example: 20 },
+                  totalItems: { type: "integer", example: 1 },
+                  totalPages: { type: "integer", example: 1 },
+                  hasNextPage: { type: "boolean", example: false },
+                  hasPrevPage: { type: "boolean", example: false },
+                },
+              },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      CreatePurchaseOrderInput: {
+        type: "object",
+        required: ["supplierId", "items"],
+        properties: {
+          supplierId: { type: "string", format: "uuid" },
+          orderDate: { type: "string", format: "date-time" },
+          expectedDeliveryDate: { type: "string", format: "date-time", nullable: true },
+          currency: { type: "string", default: "USD", example: "USD" },
+          taxAmount: { type: "number", default: 0, example: 25 },
+          notes: { type: "string", nullable: true, example: "Q4 Stock Replenishment" },
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["productId", "quantityOrdered", "unitCost"],
+              properties: {
+                productId: { type: "string", format: "uuid" },
+                quantityOrdered: { type: "number", example: 100 },
+                unitCost: { type: "number", example: 14.5 },
+              },
+            },
+          },
+        },
+      },
+      UpdatePurchaseOrderInput: {
+        type: "object",
+        properties: {
+          supplierId: { type: "string", format: "uuid" },
+          orderDate: { type: "string", format: "date-time" },
+          expectedDeliveryDate: { type: "string", format: "date-time", nullable: true },
+          currency: { type: "string", example: "USD" },
+          taxAmount: { type: "number", example: 25 },
+          notes: { type: "string", nullable: true, example: "Updated instructions" },
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["productId", "quantityOrdered", "unitCost"],
+              properties: {
+                productId: { type: "string", format: "uuid" },
+                quantityOrdered: { type: "number", example: 100 },
+                unitCost: { type: "number", example: 14.5 },
+              },
+            },
+          },
+        },
+      },
+      ReceivePurchaseOrderItemsInput: {
+        type: "object",
+        required: ["locationId", "items"],
+        properties: {
+          locationId: { type: "string", format: "uuid" },
+          reference: { type: "string", nullable: true, example: "BOL-98765" },
+          notes: { type: "string", nullable: true, example: "Received in good condition" },
+          idempotencyKey: { type: "string", nullable: true, example: "rcpt-unique-key" },
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["productId", "quantity"],
+              properties: {
+                productId: { type: "string", format: "uuid" },
+                quantity: { type: "number", example: 50 },
+              },
+            },
+          },
+        },
+      },
+      SafePurchaseOrderItemDto: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          productId: { type: "string", format: "uuid" },
+          productSku: { type: "string", example: "PROD-SKU-001" },
+          productName: { type: "string", example: "Steel Bolt" },
+          quantityOrdered: { type: "string", example: "100.0000" },
+          quantityReceived: { type: "string", example: "50.0000" },
+          quantityOutstanding: { type: "string", example: "50.0000" },
+          unitCost: { type: "string", example: "14.5000" },
+          lineTotal: { type: "string", example: "1450.0000" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      SafePurchaseOrderReceiptDto: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          organizationId: { type: "string", format: "uuid" },
+          purchaseOrderId: { type: "string", format: "uuid" },
+          locationId: { type: "string", format: "uuid" },
+          locationCode: { type: "string", example: "A-01" },
+          locationName: { type: "string", example: "Aisle A Rack 1" },
+          reference: { type: "string", nullable: true, example: "BOL-98765" },
+          notes: { type: "string", nullable: true, example: "First shipment" },
+          receivedByUserId: { type: "string", format: "uuid" },
+          receivedByUserName: { type: "string", example: "Alice Johnson" },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      SafePurchaseOrderDto: {
+        type: "object",
+        properties: {
+          id: { type: "string", format: "uuid" },
+          organizationId: { type: "string", format: "uuid" },
+          supplierId: { type: "string", format: "uuid" },
+          supplierName: { type: "string", example: "Acme Supplies Inc." },
+          supplierCode: { type: "string", nullable: true, example: "SUP-ACME-01" },
+          orderNumber: { type: "string", example: "PO-20261027-ABCD" },
+          status: {
+            type: "string",
+            enum: [
+              "DRAFT",
+              "PENDING_APPROVAL",
+              "APPROVED",
+              "PARTIALLY_RECEIVED",
+              "RECEIVED",
+              "CANCELLED",
+            ],
+            example: "DRAFT",
+          },
+          orderDate: { type: "string", format: "date-time" },
+          expectedDeliveryDate: { type: "string", format: "date-time", nullable: true },
+          currency: { type: "string", example: "USD" },
+          subtotal: { type: "string", example: "1450.0000" },
+          taxAmount: { type: "string", example: "145.0000" },
+          totalAmount: { type: "string", example: "1595.0000" },
+          notes: { type: "string", nullable: true, example: "Procurement notes" },
+          createdByUserId: { type: "string", format: "uuid" },
+          createdByUserEmail: { type: "string", format: "email", example: "buyer@stockpilot.io" },
+          approvedByUserId: { type: "string", format: "uuid", nullable: true },
+          approvedByUserEmail: {
+            type: "string",
+            format: "email",
+            nullable: true,
+            example: "admin@stockpilot.io",
+          },
+          approvedAt: { type: "string", format: "date-time", nullable: true },
+          cancelledAt: { type: "string", format: "date-time", nullable: true },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+          items: {
+            type: "array",
+            items: { $ref: "#/components/schemas/SafePurchaseOrderItemDto" },
+          },
+          receipts: {
+            type: "array",
+            items: { $ref: "#/components/schemas/SafePurchaseOrderReceiptDto" },
+          },
+        },
+      },
+      PaginatedPurchaseOrdersResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              items: {
+                type: "array",
+                items: { $ref: "#/components/schemas/SafePurchaseOrderDto" },
+              },
+              pagination: {
+                type: "object",
+                properties: {
+                  page: { type: "integer", example: 1 },
+                  limit: { type: "integer", example: 20 },
+                  totalItems: { type: "integer", example: 1 },
                   totalPages: { type: "integer", example: 1 },
                   hasNextPage: { type: "boolean", example: false },
                   hasPrevPage: { type: "boolean", example: false },

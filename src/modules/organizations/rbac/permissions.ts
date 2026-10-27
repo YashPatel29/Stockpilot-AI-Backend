@@ -37,6 +37,14 @@ export const Permissions = {
   INVENTORY_BALANCES_READ: "inventory:balances:read",
   INVENTORY_TRANSACTIONS_READ: "inventory:transactions:read",
   INVENTORY_TRANSACTIONS_WRITE: "inventory:transactions:write",
+
+  // Supplier management
+  SUPPLIERS_READ: "suppliers:read",
+  SUPPLIERS_WRITE: "suppliers:write",
+
+  // Purchase order management
+  PURCHASE_ORDERS_READ: "purchase_orders:read",
+  PURCHASE_ORDERS_WRITE: "purchase_orders:write",
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions];
@@ -66,6 +74,10 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.INVENTORY_BALANCES_READ,
     Permissions.INVENTORY_TRANSACTIONS_READ,
     Permissions.INVENTORY_TRANSACTIONS_WRITE,
+    Permissions.SUPPLIERS_READ,
+    Permissions.SUPPLIERS_WRITE,
+    Permissions.PURCHASE_ORDERS_READ,
+    Permissions.PURCHASE_ORDERS_WRITE,
   ],
   [OrganizationRole.ADMIN]: [
     Permissions.ORG_MEMBERS_READ,
@@ -84,6 +96,10 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.INVENTORY_BALANCES_READ,
     Permissions.INVENTORY_TRANSACTIONS_READ,
     Permissions.INVENTORY_TRANSACTIONS_WRITE,
+    Permissions.SUPPLIERS_READ,
+    Permissions.SUPPLIERS_WRITE,
+    Permissions.PURCHASE_ORDERS_READ,
+    Permissions.PURCHASE_ORDERS_WRITE,
   ],
   [OrganizationRole.MEMBER]: [
     Permissions.ORG_MEMBERS_READ,
@@ -93,6 +109,8 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.LOCATIONS_READ,
     Permissions.INVENTORY_BALANCES_READ,
     Permissions.INVENTORY_TRANSACTIONS_READ,
+    Permissions.SUPPLIERS_READ,
+    Permissions.PURCHASE_ORDERS_READ,
   ],
 };
 

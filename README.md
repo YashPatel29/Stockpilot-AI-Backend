@@ -146,6 +146,7 @@ For in-depth architectural decisions, guides, and runbooks:
 - [Product & Category Management Guide](./docs/API_PRODUCTS_CATEGORIES.md) — Multi-tenant product categories, SKU tracking, exact monetary precision, safe deletion, and soft-archiving.
 - [Warehouse & Location Management Guide](./docs/API_WAREHOUSES_LOCATIONS.md) — Multi-tenant warehouses, storage locations, cascade deactivation, and inactive warehouse guard.
 - [Inventory Transactions & Balances Guide](./docs/API_INVENTORY.md) — Real-time stock balances, receipts, issues, adjustments, transfers, and append-only audit ledger.
+- [Suppliers & Purchase Orders Guide](./docs/API_SUPPLIERS_PURCHASE_ORDERS.md) — Supplier catalog management, purchase order lifecycle, approvals, delivery receipts, and stock ledger synchronization.
 - [API & Health Probes](./docs/API_HEALTH.md) — Liveness vs. readiness probes, response schemas, and orchestrator configs.
 - [Deployment Guide](./docs/DEPLOYMENT.md) — Production checklist, Docker multi-stage build, and graceful shutdown.
 

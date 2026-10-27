@@ -8,6 +8,8 @@ import { categoryRouter } from "../products/categories/category.routes";
 import { productRouter } from "../products/products/product.routes";
 import { warehouseRouter } from "../warehouses/warehouses/warehouse.routes";
 import { inventoryRouter } from "../inventory/inventory.routes";
+import { supplierRouter } from "../procurement/suppliers/supplier.routes";
+import { purchaseOrderRouter } from "../procurement/purchase-orders/purchase-order.routes";
 import {
   createOrganizationSchema,
   updateOrganizationSchema,
@@ -27,13 +29,15 @@ export function createOrganizationRouter(
   // All organization routes require authenticated user session
   router.use(authenticate);
 
-  // Subroutes for organization members, invitations, categories, products, and warehouses
+  // Subroutes for organization members, invitations, categories, products, warehouses, inventory, and procurement
   router.use("/:organizationId/members", memberRouter);
   router.use("/:organizationId/invitations", orgInvitationRouter);
   router.use("/:organizationId/categories", categoryRouter);
   router.use("/:organizationId/products", productRouter);
   router.use("/:organizationId/warehouses", warehouseRouter);
   router.use("/:organizationId/inventory", inventoryRouter);
+  router.use("/:organizationId/suppliers", supplierRouter);
+  router.use("/:organizationId/purchase-orders", purchaseOrderRouter);
 
   // POST /api/v1/organizations - Create organization + owner membership
   router.post(
