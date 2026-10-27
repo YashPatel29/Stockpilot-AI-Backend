@@ -56,4 +56,3 @@ export function toSafeSupplier(supplier: Supplier): SafeSupplierDto {
     updatedAt: supplier.updatedAt.toISOString(),
   };
 }
-

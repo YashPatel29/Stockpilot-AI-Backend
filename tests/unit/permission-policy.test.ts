@@ -33,6 +33,7 @@ describe("RBAC Permissions Catalog & Invariants (Unit)", () => {
     expect(ownerPerms).toContain(Permissions.SUPPLIERS_WRITE);
     expect(ownerPerms).toContain(Permissions.PURCHASE_ORDERS_READ);
     expect(ownerPerms).toContain(Permissions.PURCHASE_ORDERS_WRITE);
+    expect(ownerPerms).toContain(Permissions.REPORTS_READ);
   });
 
   it("should assign operational permissions to ADMIN excluding settings & role assignment", () => {
@@ -57,6 +58,7 @@ describe("RBAC Permissions Catalog & Invariants (Unit)", () => {
     expect(adminPerms).toContain(Permissions.SUPPLIERS_WRITE);
     expect(adminPerms).toContain(Permissions.PURCHASE_ORDERS_READ);
     expect(adminPerms).toContain(Permissions.PURCHASE_ORDERS_WRITE);
+    expect(adminPerms).toContain(Permissions.REPORTS_READ);
     expect(adminPerms).not.toContain(Permissions.ORG_MEMBERS_ROLE_UPDATE);
     expect(adminPerms).not.toContain(Permissions.ORG_SETTINGS_MANAGE);
   });
@@ -73,6 +75,7 @@ describe("RBAC Permissions Catalog & Invariants (Unit)", () => {
       Permissions.INVENTORY_TRANSACTIONS_READ,
       Permissions.SUPPLIERS_READ,
       Permissions.PURCHASE_ORDERS_READ,
+      Permissions.REPORTS_READ,
     ]);
     expect(hasPermission(OrganizationRole.MEMBER, Permissions.ORG_MEMBERS_READ)).toBe(true);
     expect(hasPermission(OrganizationRole.MEMBER, Permissions.CATALOG_CATEGORIES_READ)).toBe(true);
@@ -85,6 +88,7 @@ describe("RBAC Permissions Catalog & Invariants (Unit)", () => {
     );
     expect(hasPermission(OrganizationRole.MEMBER, Permissions.SUPPLIERS_READ)).toBe(true);
     expect(hasPermission(OrganizationRole.MEMBER, Permissions.PURCHASE_ORDERS_READ)).toBe(true);
+    expect(hasPermission(OrganizationRole.MEMBER, Permissions.REPORTS_READ)).toBe(true);
     expect(hasPermission(OrganizationRole.MEMBER, Permissions.INVENTORY_TRANSACTIONS_WRITE)).toBe(
       false,
     );

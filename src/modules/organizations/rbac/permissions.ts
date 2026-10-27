@@ -45,6 +45,9 @@ export const Permissions = {
   // Purchase order management
   PURCHASE_ORDERS_READ: "purchase_orders:read",
   PURCHASE_ORDERS_WRITE: "purchase_orders:write",
+
+  // Reporting & dashboard management
+  REPORTS_READ: "reports:read",
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions];
@@ -78,6 +81,7 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.SUPPLIERS_WRITE,
     Permissions.PURCHASE_ORDERS_READ,
     Permissions.PURCHASE_ORDERS_WRITE,
+    Permissions.REPORTS_READ,
   ],
   [OrganizationRole.ADMIN]: [
     Permissions.ORG_MEMBERS_READ,
@@ -100,6 +104,7 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.SUPPLIERS_WRITE,
     Permissions.PURCHASE_ORDERS_READ,
     Permissions.PURCHASE_ORDERS_WRITE,
+    Permissions.REPORTS_READ,
   ],
   [OrganizationRole.MEMBER]: [
     Permissions.ORG_MEMBERS_READ,
@@ -111,6 +116,7 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.INVENTORY_TRANSACTIONS_READ,
     Permissions.SUPPLIERS_READ,
     Permissions.PURCHASE_ORDERS_READ,
+    Permissions.REPORTS_READ,
   ],
 };
 

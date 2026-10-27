@@ -82,6 +82,15 @@ export const swaggerSpec = {
       description:
         "Procurement lifecycle, line items, order approvals, cancellation, and inventory receipts",
     },
+    {
+      name: "Inventory Dashboard",
+      description: "Executive overview of stock levels, movements, and procurement metrics",
+    },
+    {
+      name: "Inventory Reports",
+      description:
+        "Warehouse distribution, ledger movements, product summaries, low-stock, and procurement analytics",
+    },
   ],
   paths: {
     "/api/v1/auth/register": {
@@ -2778,6 +2787,243 @@ export const swaggerSpec = {
         },
       },
     },
+    "/api/v1/organizations/{organizationId}/dashboard/inventory": {
+      get: {
+        tags: ["Inventory Dashboard"],
+        summary: "Executive inventory dashboard",
+        description:
+          "Returns aggregated counts, stock by UOM, movement trends, and PO commitments.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          { name: "startDate", in: "query", schema: { type: "string", format: "date-time" } },
+          { name: "endDate", in: "query", schema: { type: "string", format: "date-time" } },
+          { name: "recentLimit", in: "query", schema: { type: "integer", default: 10 } },
+        ],
+        responses: {
+          "200": {
+            description: "Dashboard metrics retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/InventoryDashboardResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/reports/inventory-by-warehouse": {
+      get: {
+        tags: ["Inventory Reports"],
+        summary: "Stock distribution by warehouse",
+        description: "Returns stock levels grouped by storage facility and unit of measure.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          { name: "warehouseId", in: "query", schema: { type: "string", format: "uuid" } },
+          { name: "categoryId", in: "query", schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "Warehouse inventory report retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/WarehouseInventoryReportResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/reports/inventory-movements": {
+      get: {
+        tags: ["Inventory Reports"],
+        summary: "Inventory movement transactions report",
+        description: "Paginated audit movements with type and UOM aggregations.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+          { name: "startDate", in: "query", schema: { type: "string", format: "date-time" } },
+          { name: "endDate", in: "query", schema: { type: "string", format: "date-time" } },
+          {
+            name: "type",
+            in: "query",
+            schema: { type: "string", enum: ["RECEIPT", "ISSUE", "ADJUSTMENT", "TRANSFER"] },
+          },
+          { name: "productId", in: "query", schema: { type: "string", format: "uuid" } },
+          { name: "warehouseId", in: "query", schema: { type: "string", format: "uuid" } },
+          { name: "locationId", in: "query", schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "Inventory movements report retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/InventoryMovementsReportResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/reports/product-inventory": {
+      get: {
+        tags: ["Inventory Reports"],
+        summary: "Product inventory report",
+        description: "Paginated product summary with non-duplicated rows and location breakdown.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+          { name: "productId", in: "query", schema: { type: "string", format: "uuid" } },
+          { name: "search", in: "query", schema: { type: "string" } },
+          { name: "categoryId", in: "query", schema: { type: "string", format: "uuid" } },
+          { name: "warehouseId", in: "query", schema: { type: "string", format: "uuid" } },
+          { name: "locationId", in: "query", schema: { type: "string", format: "uuid" } },
+        ],
+        responses: {
+          "200": {
+            description: "Product inventory report retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ProductInventoryReportResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/reports/low-stock": {
+      get: {
+        tags: ["Inventory Reports"],
+        summary: "Low stock alert report",
+        description: "Products with total stock falling below Product.lowStockThreshold.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+          { name: "categoryId", in: "query", schema: { type: "string", format: "uuid" } },
+          { name: "thresholdOverride", in: "query", schema: { type: "integer" } },
+          {
+            name: "includeZeroThreshold",
+            in: "query",
+            schema: { type: "boolean", default: false },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Low stock report retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/LowStockReportResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/reports/purchase-orders": {
+      get: {
+        tags: ["Inventory Reports"],
+        summary: "Purchase order report",
+        description: "Procurement commitments, status distribution, and outstanding quantities.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+          { name: "startDate", in: "query", schema: { type: "string", format: "date-time" } },
+          { name: "endDate", in: "query", schema: { type: "string", format: "date-time" } },
+          { name: "supplierId", in: "query", schema: { type: "string", format: "uuid" } },
+          {
+            name: "status",
+            in: "query",
+            schema: {
+              type: "string",
+              enum: [
+                "DRAFT",
+                "PENDING_APPROVAL",
+                "APPROVED",
+                "PARTIALLY_RECEIVED",
+                "RECEIVED",
+                "CANCELLED",
+              ],
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Purchase order report retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PurchaseOrderReportResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/reports/recent-activity": {
+      get: {
+        tags: ["Inventory Reports"],
+        summary: "Recent inventory activity report",
+        description: "Returns latest ledger transaction activity up to requested limit.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
+        ],
+        responses: {
+          "200": {
+            description: "Recent activity retrieved successfully",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/RecentActivityReportResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
     "/api/v1/organizations/{organizationId}/purchase-orders/{purchaseOrderId}/receipts": {
       post: {
         tags: ["Purchase Orders"],
@@ -3508,6 +3754,201 @@ export const swaggerSpec = {
                   hasPrevPage: { type: "boolean", example: false },
                 },
               },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      InventoryDashboardResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              overview: {
+                type: "object",
+                properties: {
+                  totalActiveProducts: { type: "integer", example: 45 },
+                  totalActiveWarehouses: { type: "integer", example: 3 },
+                  totalActiveStorageLocations: { type: "integer", example: 24 },
+                  positiveStockBalancesCount: { type: "integer", example: 38 },
+                  zeroStockBalancesCount: { type: "integer", example: 6 },
+                  unitsOnHand: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        unitOfMeasure: { type: "string", example: "PCS" },
+                        totalQuantityOnHand: { type: "string", example: "1250.0000" },
+                      },
+                    },
+                  },
+                },
+              },
+              movementsWindow: {
+                type: "object",
+                properties: {
+                  startDate: { type: "string", format: "date-time" },
+                  endDate: { type: "string", format: "date-time" },
+                  totalTransactions: { type: "integer", example: 85 },
+                  countsByType: { type: "object" },
+                  quantitiesByTypeAndUom: { type: "array", items: { type: "object" } },
+                },
+              },
+              purchaseOrdersSummary: {
+                type: "object",
+                properties: {
+                  totalOrdersCount: { type: "integer", example: 12 },
+                  countsByStatus: { type: "object" },
+                  totalCommittedValue: { type: "string", example: "15420.0000" },
+                  totalDraftValue: { type: "string", example: "2400.0000" },
+                  totalCancelledValue: { type: "string", example: "1200.0000" },
+                  pendingApprovalCount: { type: "integer", example: 2 },
+                },
+              },
+              recentTransactions: { type: "array", items: { type: "object" } },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      WarehouseInventoryReportResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              warehouses: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    warehouseId: { type: "string", format: "uuid" },
+                    warehouseCode: { type: "string", example: "WH-EAST" },
+                    warehouseName: { type: "string", example: "East Hub" },
+                    status: { type: "string", example: "ACTIVE" },
+                    locationCount: { type: "integer", example: 12 },
+                    positiveStockLocationsCount: { type: "integer", example: 9 },
+                    distinctProductsCount: { type: "integer", example: 25 },
+                    stockByUom: { type: "array", items: { type: "object" } },
+                  },
+                },
+              },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      InventoryMovementsReportResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              summary: { type: "object" },
+              items: { type: "array", items: { type: "object" } },
+              pagination: { type: "object" },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      ProductInventoryReportResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              items: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    productId: { type: "string", format: "uuid" },
+                    sku: { type: "string", example: "STEEL-01" },
+                    name: { type: "string", example: "Industrial Bolt" },
+                    categoryName: { type: "string", nullable: true },
+                    unitOfMeasure: { type: "string", example: "PCS" },
+                    costPrice: { type: "string", example: "1.5000" },
+                    sellingPrice: { type: "string", example: "3.0000" },
+                    status: { type: "string", example: "ACTIVE" },
+                    totalQuantityOnHand: { type: "string", example: "150.0000" },
+                    locationCount: { type: "integer", example: 2 },
+                    locations: { type: "array", items: { type: "object" } },
+                  },
+                },
+              },
+              pagination: { type: "object" },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      LowStockReportResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              summary: {
+                type: "object",
+                properties: {
+                  lowStockProductsCount: { type: "integer", example: 3 },
+                },
+              },
+              items: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    productId: { type: "string", format: "uuid" },
+                    sku: { type: "string", example: "FILTER-01" },
+                    name: { type: "string", example: "Oil Filter" },
+                    categoryName: { type: "string", nullable: true },
+                    unitOfMeasure: { type: "string", example: "PCS" },
+                    lowStockThreshold: { type: "integer", example: 50 },
+                    totalQuantityOnHand: { type: "string", example: "12.0000" },
+                    deficit: { type: "string", example: "38.0000" },
+                    status: { type: "string", example: "ACTIVE" },
+                    locationsCount: { type: "integer", example: 1 },
+                  },
+                },
+              },
+              pagination: { type: "object" },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      PurchaseOrderReportResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              summary: { type: "object" },
+              items: { type: "array", items: { type: "object" } },
+              pagination: { type: "object" },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      RecentActivityReportResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              items: { type: "array", items: { type: "object" } },
+              limit: { type: "integer", example: 20 },
             },
           },
           timestamp: { type: "string", format: "date-time" },

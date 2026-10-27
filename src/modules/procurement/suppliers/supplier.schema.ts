@@ -168,4 +168,3 @@ export const listSuppliersQuerySchema = z
   .strict();
 
 export type ListSuppliersQuery = z.infer<typeof listSuppliersQuerySchema>;
-
