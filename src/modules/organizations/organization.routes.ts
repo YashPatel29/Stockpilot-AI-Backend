@@ -15,6 +15,7 @@ import { reportsRouter } from "../reporting/reports.routes";
 import { auditRouter } from "../audit/audit.routes";
 import { demandForecastRouter } from "../forecasting/forecasting.routes";
 import { anomalyRouter } from "../anomalies/anomaly.routes";
+import { copilotRouter } from "../copilot/copilot.routes";
 import {
   createOrganizationSchema,
   updateOrganizationSchema,
@@ -48,6 +49,7 @@ export function createOrganizationRouter(
   router.use("/:organizationId/audit-logs", auditRouter);
   router.use("/:organizationId/forecasts/demand", demandForecastRouter);
   router.use("/:organizationId/anomalies", anomalyRouter);
+  router.use("/:organizationId/copilot", copilotRouter);
 
   // POST /api/v1/organizations - Create organization + owner membership
   router.post(

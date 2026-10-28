@@ -43,6 +43,8 @@ export const AuditAction = {
   ANOMALY_ACKNOWLEDGED: "anomaly.acknowledged",
   ANOMALY_RESOLVED: "anomaly.resolved",
   ANOMALY_DISMISSED: "anomaly.dismissed",
+  COPILOT_QUERY: "copilot.query",
+  COPILOT_CONVERSATION_DELETED: "copilot.conversation_deleted",
 } as const;
 
 export type AuditActionType = (typeof AuditAction)[keyof typeof AuditAction] | string;
@@ -67,6 +69,7 @@ export const AuditResourceType = {
   DEMAND_FORECAST_RUN: "DemandForecastRun",
   INVENTORY_ANOMALY: "InventoryAnomaly",
   ANOMALY_DETECTION_RUN: "AnomalyDetectionRun",
+  COPILOT_CONVERSATION: "CopilotConversation",
 } as const;
 
 export type AuditResourceTypeKey =

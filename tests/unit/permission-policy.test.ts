@@ -39,6 +39,7 @@ describe("RBAC Permissions Catalog & Invariants (Unit)", () => {
     expect(ownerPerms).toContain(Permissions.FORECASTS_WRITE);
     expect(ownerPerms).toContain(Permissions.ANOMALIES_READ);
     expect(ownerPerms).toContain(Permissions.ANOMALIES_WRITE);
+    expect(ownerPerms).toContain(Permissions.COPILOT_CHAT);
   });
 
   it("should assign operational permissions to ADMIN excluding settings & role assignment", () => {
@@ -69,6 +70,7 @@ describe("RBAC Permissions Catalog & Invariants (Unit)", () => {
     expect(adminPerms).toContain(Permissions.FORECASTS_WRITE);
     expect(adminPerms).toContain(Permissions.ANOMALIES_READ);
     expect(adminPerms).toContain(Permissions.ANOMALIES_WRITE);
+    expect(adminPerms).toContain(Permissions.COPILOT_CHAT);
     expect(adminPerms).not.toContain(Permissions.ORG_MEMBERS_ROLE_UPDATE);
     expect(adminPerms).not.toContain(Permissions.ORG_SETTINGS_MANAGE);
   });
@@ -88,6 +90,7 @@ describe("RBAC Permissions Catalog & Invariants (Unit)", () => {
       Permissions.REPORTS_READ,
       Permissions.FORECASTS_READ,
       Permissions.ANOMALIES_READ,
+      Permissions.COPILOT_CHAT,
     ]);
     expect(hasPermission(OrganizationRole.MEMBER, Permissions.ORG_MEMBERS_READ)).toBe(true);
     expect(hasPermission(OrganizationRole.MEMBER, Permissions.CATALOG_CATEGORIES_READ)).toBe(true);
@@ -105,6 +108,7 @@ describe("RBAC Permissions Catalog & Invariants (Unit)", () => {
     expect(hasPermission(OrganizationRole.MEMBER, Permissions.FORECASTS_WRITE)).toBe(false);
     expect(hasPermission(OrganizationRole.MEMBER, Permissions.ANOMALIES_READ)).toBe(true);
     expect(hasPermission(OrganizationRole.MEMBER, Permissions.ANOMALIES_WRITE)).toBe(false);
+    expect(hasPermission(OrganizationRole.MEMBER, Permissions.COPILOT_CHAT)).toBe(true);
     expect(hasPermission(OrganizationRole.MEMBER, Permissions.INVENTORY_TRANSACTIONS_WRITE)).toBe(
       false,
     );

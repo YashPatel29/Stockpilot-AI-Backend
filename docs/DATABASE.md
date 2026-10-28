@@ -305,3 +305,48 @@ model AnomalyDetectionRun {
   @@map("anomaly_detection_runs")
 }
 ```
+
+---
+
+## 10. AI Inventory Copilot Schema (Feature 12)
+
+Feature 12 introduces user-scoped conversation threads and grounded message history:
+
+```prisma
+enum CopilotMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model CopilotConversation {
+  id             String           @id @default(cuid())
+  organizationId String           @map("organization_id")
+  userId         String           @map("user_id")
+  title          String
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages       CopilotMessage[]
+
+  @@index([organizationId, userId, updatedAt])
+  @@map("copilot_conversations")
+}
+
+model CopilotMessage {
+  id             String             @id @default(cuid())
+  conversationId String             @map("conversation_id")
+  role           CopilotMessageRole
+  content        String             @db.Text
+  sources        Json               @default("[]")
+  tokensUsed     Int?               @map("tokens_used")
+  createdAt      DateTime           @default(now()) @map("created_at")
+
+  conversation   CopilotConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("copilot_messages")
+}
+```

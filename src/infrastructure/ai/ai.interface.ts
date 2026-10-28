@@ -1,3 +1,5 @@
+import type { BaseChatModel } from "@langchain/core/language_models/chat_models";
+
 /**
  * AI Provider Types supported by StockPilot AI architecture.
  */
@@ -26,4 +28,9 @@ export interface IAiModelProvider {
    * Executes a prompt or workflow step within LangChain/LangGraph bounds.
    */
   executePrompt(prompt: string, options?: AiWorkflowOptions): Promise<string>;
+
+  /**
+   * Returns a LangChain Chat Model configured for conversational agent execution.
+   */
+  getChatModel(options?: AiWorkflowOptions): BaseChatModel;
 }

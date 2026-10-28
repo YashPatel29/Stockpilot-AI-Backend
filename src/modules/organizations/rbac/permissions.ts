@@ -59,6 +59,9 @@ export const Permissions = {
   // Inventory anomaly detection management
   ANOMALIES_READ: "anomalies:read",
   ANOMALIES_WRITE: "anomalies:write",
+
+  // AI Inventory Copilot conversational assistant
+  COPILOT_CHAT: "copilot:chat",
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions];
@@ -98,6 +101,7 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.FORECASTS_WRITE,
     Permissions.ANOMALIES_READ,
     Permissions.ANOMALIES_WRITE,
+    Permissions.COPILOT_CHAT,
   ],
   [OrganizationRole.ADMIN]: [
     Permissions.ORG_MEMBERS_READ,
@@ -126,6 +130,7 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.FORECASTS_WRITE,
     Permissions.ANOMALIES_READ,
     Permissions.ANOMALIES_WRITE,
+    Permissions.COPILOT_CHAT,
   ],
   [OrganizationRole.MEMBER]: [
     Permissions.ORG_MEMBERS_READ,
@@ -140,6 +145,7 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly Permission[]> =
     Permissions.REPORTS_READ,
     Permissions.FORECASTS_READ,
     Permissions.ANOMALIES_READ,
+    Permissions.COPILOT_CHAT,
   ],
 };
 

@@ -145,3 +145,26 @@ StockPilot AI implements non-destructive, statistical inventory anomaly detectio
   - `UNUSUAL_TRANSFER_PATTERN`: Rapid rebound or ping-pong lateral transfers between locations without misclassifying internal movements as demand.
 - **Deduplication & Idempotency**: Strict unique constraint on `[organizationId, dedupKey]` ensures repeatable scheduled runs do not duplicate active findings.
 - **Review Lifecycle**: Enforces structured lifecycle progression (`OPEN` $\to$ `ACKNOWLEDGED`, `RESOLVED`, `DISMISSED`) with reviewer attribution and immutable audit trail logging.
+
+---
+
+## 8. AI Inventory Copilot Architecture (Feature 12)
+
+StockPilot AI implements a conversational assistant for enterprise inventory intelligence using LangChain and LangGraph:
+
+- **Strictly Read-Only Guarantee**: The assistant is strictly prohibited from mutating application state. Zero tools exist to create or update products, adjust stock balances, approve purchase orders, or resolve anomalies.
+- **Organization-Scoped Tooling**: All 10 domain tools are instantiated per request via `CopilotToolFactory` with the caller's verified `organizationId` closed into tool execution scope, preventing cross-tenant leakage.
+- **Allowlisted Domain Tools**:
+  1. `search_products`: Catalog searching by name, SKU, or category.
+  2. `get_stock_balances`: Multi-location on-hand, reserved, and available balance inspection.
+  3. `get_inventory_movements`: Ledger transaction inspection by type (RECEIPT, ISSUE, ADJUSTMENT, TRANSFER).
+  4. `get_low_stock_products`: Low-stock threshold alert reports.
+  5. `get_warehouse_inventory`: Warehouse breakdown by facility and unit of measure.
+  6. `list_purchase_orders`: Procurement status and supplier queries.
+  7. `get_purchase_order_detail`: Specific PO lines and receipt inspection.
+  8. `get_demand_forecasts`: Future demand predictions and time-series points.
+  9. `get_inventory_anomalies`: Active and historical anomaly findings review.
+  10. `get_inventory_summary`: Executive KPI dashboard aggregations.
+- **Source Attribution & Grounding**: Every tool records entity citations in real time (`CopilotSourceDto`). Responses are attributed directly to verified records.
+- **Prompt Injection Defense & Guardrails**: User queries are isolated within `<user_query>` tags and treated as untrusted data. Execution is capped by `AI_REQUEST_TIMEOUT_MS` and `AI_MAX_GRAPH_STEPS`.
+- **User-Scoped Thread Persistence**: Conversations and messages are persisted in PostgreSQL (`copilot_conversations`, `copilot_messages`) with audit logging (`copilot.query`, `copilot.conversation_deleted`).

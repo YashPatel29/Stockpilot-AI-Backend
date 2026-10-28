@@ -4,7 +4,7 @@ import { appConfig } from "./app.config";
 /**
  * OpenAPI 3.0.3 specification for StockPilot AI Backend.
  */
-export const swaggerSpec = {
+export const swaggerSpec: Record<string, unknown> = {
   openapi: "3.0.3",
   info: {
     title: "StockPilot AI — Backend API",
@@ -109,6 +109,11 @@ export const swaggerSpec = {
       name: "Inventory Anomalies",
       description:
         "Automated statistical anomaly detection across ledger transactions, review workflows, and finding lifecycle management",
+    },
+    {
+      name: "AI Copilot",
+      description:
+        "Conversational AI assistant for grounded, read-only multi-tenant inventory intelligence and operational queries",
     },
   ],
   paths: {
@@ -3645,6 +3650,171 @@ export const swaggerSpec = {
         },
       },
     },
+    "/api/v1/organizations/{organizationId}/copilot/chat": {
+      post: {
+        tags: ["AI Copilot"],
+        summary: "Submit conversational query to AI Copilot",
+        description:
+          "Processes a natural language query with grounded LangGraph agent execution. Uses allowlisted, strictly read-only tools to retrieve verified operational data. Automatically generates and attributes domain citations.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+            description: "Target organization identifier",
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/CopilotChatInput" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Assistant response generated successfully with grounded citations",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/CopilotChatResponse" },
+              },
+            },
+          },
+          "400": { $ref: "#/components/responses/ValidationError" },
+          "401": { $ref: "#/components/responses/UnauthorizedError" },
+          "403": { $ref: "#/components/responses/ForbiddenError" },
+          "503": { $ref: "#/components/responses/ServiceUnavailableError" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/copilot/conversations": {
+      get: {
+        tags: ["AI Copilot"],
+        summary: "List user conversation threads",
+        description:
+          "Retrieves a paginated list of conversational threads belonging to the authenticated user within the organization.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "page",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 1 },
+          },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 20 },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Paginated list of conversations",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PaginatedCopilotConversationsResponse" },
+              },
+            },
+          },
+          "401": { $ref: "#/components/responses/UnauthorizedError" },
+          "403": { $ref: "#/components/responses/ForbiddenError" },
+        },
+      },
+    },
+    "/api/v1/organizations/{organizationId}/copilot/conversations/{conversationId}": {
+      get: {
+        tags: ["AI Copilot"],
+        summary: "Get conversation thread details with messages",
+        description: "Retrieves a single conversation thread with its paginated message history.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "conversationId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+          {
+            name: "page",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 1 },
+          },
+          {
+            name: "limit",
+            in: "query",
+            required: false,
+            schema: { type: "integer", default: 50 },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Conversation thread with message history",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PaginatedCopilotMessagesResponse" },
+              },
+            },
+          },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+      delete: {
+        tags: ["AI Copilot"],
+        summary: "Delete conversation thread",
+        description:
+          "Permanently deletes a conversation thread and its associated messages for the user.",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "organizationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          {
+            name: "conversationId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Conversation thread deleted successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    data: { $ref: "#/components/schemas/SafeCopilotConversation" },
+                    timestamp: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+          "404": { $ref: "#/components/responses/NotFoundError" },
+        },
+      },
+    },
   },
   components: {
     securitySchemes: {
@@ -5199,6 +5369,122 @@ export const swaggerSpec = {
                   page: { type: "integer", example: 1 },
                   limit: { type: "integer", example: 20 },
                   total: { type: "integer", example: 5 },
+                  totalPages: { type: "integer", example: 1 },
+                },
+              },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      CopilotChatInput: {
+        type: "object",
+        required: ["message"],
+        properties: {
+          message: {
+            type: "string",
+            minLength: 1,
+            maxLength: 2000,
+            example: "Which products are below safety stock?",
+          },
+          conversationId: { type: "string", example: "conv_12345" },
+        },
+      },
+      CopilotSource: {
+        type: "object",
+        properties: {
+          type: { type: "string", example: "product" },
+          id: { type: "string", example: "prod-1" },
+          name: { type: "string", example: "Industrial Drill" },
+          summary: {
+            type: "string",
+            example: "Product: Industrial Drill (SKU: WGT-ALPHA) - Price: $89.99",
+          },
+          metadata: { type: "object" },
+        },
+      },
+      SafeCopilotMessage: {
+        type: "object",
+        properties: {
+          id: { type: "string", example: "msg-1" },
+          conversationId: { type: "string", example: "conv-1" },
+          role: { type: "string", enum: ["USER", "ASSISTANT", "SYSTEM"], example: "ASSISTANT" },
+          content: { type: "string", example: "There are currently 3 low stock alerts." },
+          sources: { type: "array", items: { $ref: "#/components/schemas/CopilotSource" } },
+          tokensUsed: { type: "integer", nullable: true, example: 250 },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      SafeCopilotConversation: {
+        type: "object",
+        properties: {
+          id: { type: "string", example: "conv-1" },
+          organizationId: { type: "string", format: "uuid" },
+          userId: { type: "string", format: "uuid" },
+          title: { type: "string", example: "Which products are below safety stock?" },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+          messageCount: { type: "integer", example: 2 },
+          lastMessage: { $ref: "#/components/schemas/SafeCopilotMessage" },
+        },
+      },
+      CopilotChatResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              conversationId: { type: "string", example: "conv-1" },
+              message: { $ref: "#/components/schemas/SafeCopilotMessage" },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      PaginatedCopilotConversationsResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              conversations: {
+                type: "array",
+                items: { $ref: "#/components/schemas/SafeCopilotConversation" },
+              },
+              pagination: {
+                type: "object",
+                properties: {
+                  page: { type: "integer", example: 1 },
+                  limit: { type: "integer", example: 20 },
+                  total: { type: "integer", example: 5 },
+                  totalPages: { type: "integer", example: 1 },
+                },
+              },
+            },
+          },
+          timestamp: { type: "string", format: "date-time" },
+        },
+      },
+      PaginatedCopilotMessagesResponse: {
+        type: "object",
+        properties: {
+          success: { type: "boolean", example: true },
+          data: {
+            type: "object",
+            properties: {
+              conversation: { $ref: "#/components/schemas/SafeCopilotConversation" },
+              messages: {
+                type: "array",
+                items: { $ref: "#/components/schemas/SafeCopilotMessage" },
+              },
+              pagination: {
+                type: "object",
+                properties: {
+                  page: { type: "integer", example: 1 },
+                  limit: { type: "integer", example: 50 },
+                  total: { type: "integer", example: 2 },
                   totalPages: { type: "integer", example: 1 },
                 },
               },
