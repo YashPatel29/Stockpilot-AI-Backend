@@ -27,7 +27,9 @@ export const appConfig = {
     options: corsOptions,
   },
   database: {
-    url: env.DATABASE_URL,
+    url:
+      env.NODE_ENV === "test" && env.DATABASE_URL_TEST ? env.DATABASE_URL_TEST : env.DATABASE_URL,
+    testUrl: env.DATABASE_URL_TEST,
     accelerateUrl: env.PRISMA_ACCELERATE_URL,
   },
   security: {

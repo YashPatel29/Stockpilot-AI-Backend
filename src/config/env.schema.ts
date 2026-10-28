@@ -65,6 +65,7 @@ export const envSchema = z
       .default(
         "postgresql://stockpilot_user:stockpilot_pass@localhost:5432/stockpilot_dev?schema=public",
       ),
+    DATABASE_URL_TEST: z.string().optional(),
     PRISMA_ACCELERATE_URL: z.string().optional(),
 
     // JWT Security

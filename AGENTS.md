@@ -85,13 +85,16 @@ npm run typecheck
 # 2. ESLint verification
 npm run lint
 
-# 3. Unit and integration tests
+# 3. Unit and mocked integration tests
 npm test
 
-# 4. Code formatting check
+# 4. Dedicated PostgreSQL database integration tests
+npm run test:db
+
+# 5. Code formatting check
 npm run format:check
 
-# 5. Production build compilation
+# 6. Production build compilation
 npm run build
 ```
 
