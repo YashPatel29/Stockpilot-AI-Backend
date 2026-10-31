@@ -1,9 +1,10 @@
+
 # ==============================================================================
 # StockPilot AI — Multi-Stage Production Dockerfile
 # ==============================================================================
 
-# Stage 1: Build stage
-FROM node:20-alpine AS builder
+# Stage 1: Build
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -11,38 +12,41 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY prisma ./prisma/
 
-# Install dependencies including devDependencies for build
+# Install all dependencies
 RUN npm ci
 
-# Copy TypeScript configuration and source files
+# Copy source files
 COPY tsconfig.json tsconfig.build.json ./
 COPY src ./src
 
-# Generate Prisma Client and compile TypeScript to dist/
+# Generate Prisma Client
 RUN npx prisma generate
+
+# Compile TypeScript
 RUN npm run build
 
-# Prune devDependencies to keep image lean
-RUN npm prune --production
+# Remove development dependencies
+RUN npm prune --omit=dev
 
-# ------------------------------------------------------------------------------
-# Stage 2: Production runner
-# ------------------------------------------------------------------------------
-FROM node:20-alpine AS runner
+# ==============================================================================
+# Stage 2: Production
+# ==============================================================================
+
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
-# Install dumb-init or use node unprivileged user for signal handling
+# Install dumb-init
 RUN apk add --no-cache dumb-init
 
 ENV NODE_ENV=production
 ENV PORT=5000
 ENV HOST=0.0.0.0
 
-# Run container as non-root user
+# Run as non-root user
 USER node
 
-# Copy production dependencies and compiled artifacts
+# Copy production dependencies and application files
 COPY --chown=node:node package.json ./
 COPY --chown=node:node --from=builder /app/node_modules ./node_modules
 COPY --chown=node:node --from=builder /app/dist ./dist
@@ -50,7 +54,6 @@ COPY --chown=node:node --from=builder /app/prisma ./prisma
 
 EXPOSE 5000
 
-# Use dumb-init to properly forward SIGTERM / SIGINT signals to Node.js
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
-CMD ["node", "dist/server.js"]
 
+CMD ["node", "dist/server.js"]

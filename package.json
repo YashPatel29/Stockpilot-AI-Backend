@@ -5,7 +5,8 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "rimraf dist && node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc -p tsconfig.build.json",
+    "build": "prisma generate && rimraf dist && node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc -p tsconfig.build.json",
+    "postinstall": "prisma generate",
     "start": "node dist/server.js",
     "typecheck": "node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
